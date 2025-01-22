@@ -1,0 +1,187 @@
+---
+title: "MODELOS LINEARES GENERALIZADOS (EST082)"
+subtitle: "RESOLUÇÃO - LISTA 1"
+lang: pt
+author: "Jaqueline Lamas da Silva"
+knitr:
+    opts_chunk: 
+      fig.align: 'center'
+format: 
+  html:
+    self-contained-math: true
+    embed-resources: true
+    code-fold: true
+toc: true
+editor: source
+---
+
+
+```{r, echo=FALSE, warning=FALSE}
+suppressMessages(library("dplyr"))
+suppressMessages(library("MASS"))
+source("envel_norm.r")
+
+```
+
+## **Paula (2013): Cap. 1**
+**Análise de resíduo, validação do modelo e análise de diagnóstico.**
+
+
+
+## 19
+
+**Variáveis:**
+
+* (i) estado (nome do estado);
+* (ii) pop(população estimada em julho de 1975); 
+* (iii) percap (renda percapita em 1974 em USD);
+* (iv) analf (proporção de analfabetos em 1970), 
+* (v) expvida (expectativa de vida em anos 1969-70);
+* (vi) crime (taxa de criminalidade por 100000 habitantes 1976);
+* (vii) estud (porcentagem de estudantes que concluem o segundo grau 1970);
+* (viii) ndias (número de dias do ano com temperatura abaixo de zero grau Celsus na cidade mais importante do estado);
+* (ix) area (área do estado em milhas quadradas).
+
+
+
+```{r}
+reg3 <-read.table("C:/ufjf/2024.3/MLG/dados/lista1/reg3.txt", quote="\"")
+# Nomear as colunas do data frame
+colnames(reg3) <- c("estado",    # (i) Nome do estado
+                    "pop",       # (ii) População estimada em julho de 1975
+                    "percap",    # (iii) Renda per capita em 1974 em USD
+                    "analf",     # (iv) Proporção de analfabetos em 1970
+                    "expvida",   # (v) Expectativa de vida em anos 1969-70
+                    "crime",     # (vi) Taxa de criminalidade por 100000 habitantes em 1976
+                    "estud",     # (vii) Porcentagem de estudantes que concluem o segundo grau em 1970
+                    "ndias",     # (viii) Número de dias do ano com temperatura abaixo de zero grau Celsius
+                    "area")      # (ix) Área do estado em milhas quadradas
+```
+Queremos explicar e variável **expvida** usando um modelo de regressão normal linear dadas as variáveis explicativas percap, analf, crime, estud, ndias e dens, em que dens=pop/area.
+
+### Análise exploratória
+
+```{r, warning=FALSE}
+reg3<- reg3 |>
+  mutate(dens=pop/area)
+attach(reg3)
+painel.pearson <- function(x, y, ...) {
+    horizontal <- (par("usr")[1] + par("usr")[2]) / 2;
+    vertical <- (par("usr")[3] + par("usr")[4]) / 2;
+    text(horizontal, vertical, format(abs(cor(x,y)), digits=2))
+}
+
+painel.prop <- function(x, y, ...){
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  r <- round(cor(x, y), digits = 2)
+  txt <- paste0("R = ", r)
+  cex.cor <- 0.8/strwidth(txt)
+  text(0.5, 0.5, txt, cex = cex.cor * r)
+}
+
+pairs(reg3[,c(5,3,4,6,7,8,10)], main = "Expectativa de vida - Correlograma", pch = 20, col="aquamarine3", 
+    lower.panel = painel.prop)
+
+```
+No gráfico acima temos o diagrama de dispersão de todas as possíveis variáveis explicativas com a resposta. Pelo gráfico de dispersão, as variáveis parecem estar relacionadas de forma linear com a expectativa de vida, isso pode ser verificado também pela correlação entre elas. Além disso, temos que algumas variáveis explicativas possuem relacionamento entre si, isso pode gerar problemas de multicolinearidade.
+
+```{r}
+ajuste0<-lm(expvida~percap+analf+crime+estud+ndias+dens, data = reg3)
+```
+
+### Seleção de variáveis
+
+Vamos utilizar o critério AIC para selecionar as variáveis.
+```{r}
+ajuste<-stepAIC(ajuste0,direction="backward")
+```
+As variáveis selecionadas são: crime, estud, ndias, dens.
+
+```{r}
+modelo<-lm(expvida ~ crime + estud + ndias + dens, data=reg3)
+summary(modelo)
+```
+
+
+
+### Análise de Resíduos
+
+*MODELO:* expvida ~ crime + estud + ndias + dens
+
+```{r}
+attach(reg3)
+y.hat<-modelo$fitted.values
+res_stud<-rstudent(modelo)
+res_pad<-rstandard(modelo)
+
+X<-matrix(c(rep(1,n), crime, estud, ndias, dens), ncol=5, nrow=n, byrow = F)
+H<-X%*%solve(t(X)%*%X)%*%t(X)
+QMRes <- sum(modelo$residuals^2)/45  # quadrado medio dos residuos
+sigma2 <- ((n-p)/n)*QMRes
+ti<-(modelo$residuals/(sigma2*sqrt(1-diag(H))))
+ti.estrela<-ti*((n-p-1)/(n-p-ti^2))
+
+hist(ti,freq=F)
+curve(dt(x,df=(n-p-1)),from=-3, to=3, add=T)
+ks.test(ti.estrela,pt, df=(n-p-1))
+
+plot(res_stud)
+qt(0.025,df=n-p-1)
+```
+
+#### Normalidade
+
+```{r}
+envel_norm(modelo)
+```
+
+Os resíduos podem ser considerados normalmente distribuídos.
+
+#### Homodedasticidade
+```{r}
+plot(y.hat,res_pad,xlab="Valores Ajustados", ylab="Resíduos Padronizados",pch=19)
+```
+Não foi identificado padrões que indiquem que os erros são heterocedásticos.
+
+#### Resíduo x variável explicativa
+```{r}
+plot(crime, res_pad, pch=19)
+plot(estud, res_pad, pch=19)
+plot(ndias, res_pad, pch=19)
+plot(dens, res_pad, pch=19)
+```
+Não parece haver mais nenhuma contribuição das variáveis explicativas crime, estud, ndias e dens.
+
+**Modelo validado!**
+
+### Análise de diagnóstico
+
+```{r}
+influ<-influence.measures(modelo)
+deffits=influ$infmat[,3] # conferir coluna
+cook=influ$infmat[,5] # conferir coluna
+Hii=influ$infmat[,6] # conferir coluna
+n<-nrow(reg3)
+p<-5
+corte=2*p/n
+plot(Hii, pch=19)
+lines(1:n,corte*rep(1,n))
+identify(Hii)
+
+corte=pf(0.5,p,n-p)
+plot(cook)
+lines(1:n,corte*rep(1,n))
+
+corte=2*sqrt(p/(n-p))
+plot(deffits)
+lines(1:n,corte*rep(1,n))
+
+# Influ?ncia global: Di
+# p=length(fit$coefficients)
+# Di=Hii*(res_pad^2)/(p*(1-Hii))
+# plot(Di)
+
+```
+
+
