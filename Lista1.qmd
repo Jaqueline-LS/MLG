@@ -45,7 +45,7 @@ source("envel_norm.r")
 
 
 ```{r}
-reg3 <-read.table("C:/ufjf/2024.3/MLG/dados/lista1/reg3.txt", quote="\"")
+reg3 <-read.table("./dados/lista1/reg3.txt", quote="\"")
 # Nomear as colunas do data frame
 colnames(reg3) <- c("estado",    # (i) Nome do estado
                     "pop",       # (ii) População estimada em julho de 1975
@@ -105,7 +105,7 @@ summary(modelo)
 
 
 
-### Análise de Resíduos
+### Análise de resíduos
 
 *MODELO:* expvida ~ crime + estud + ndias + dens
 
@@ -114,20 +114,7 @@ attach(reg3)
 y.hat<-modelo$fitted.values
 res_stud<-rstudent(modelo)
 res_pad<-rstandard(modelo)
-
-X<-matrix(c(rep(1,n), crime, estud, ndias, dens), ncol=5, nrow=n, byrow = F)
-H<-X%*%solve(t(X)%*%X)%*%t(X)
-QMRes <- sum(modelo$residuals^2)/45  # quadrado medio dos residuos
-sigma2 <- ((n-p)/n)*QMRes
-ti<-(modelo$residuals/(sigma2*sqrt(1-diag(H))))
-ti.estrela<-ti*((n-p-1)/(n-p-ti^2))
-
-hist(ti,freq=F)
-curve(dt(x,df=(n-p-1)),from=-3, to=3, add=T)
-ks.test(ti.estrela,pt, df=(n-p-1))
-
 plot(res_stud)
-qt(0.025,df=n-p-1)
 ```
 
 #### Normalidade
@@ -158,29 +145,430 @@ Não parece haver mais nenhuma contribuição das variáveis explicativas crime,
 ### Análise de diagnóstico
 
 ```{r}
+# X<-matrix(c(rep(1,50), crime, estud, ndias, dens), ncol=5, nrow=50, byrow = F)
+# H<-X%*%solve(t(X)%*%X)%*%t(X)
+# QMRes <- sum(modelo$residuals^2)/45  # quadrado medio dos residuos
+# sigma2 <- ((n-p)/n)*QMRes
+
 influ<-influence.measures(modelo)
-deffits=influ$infmat[,3] # conferir coluna
-cook=influ$infmat[,5] # conferir coluna
-Hii=influ$infmat[,6] # conferir coluna
+deffits=influ$infmat[,6] # conferir coluna
+cook=influ$infmat[,8] # conferir coluna
+Hii=influ$infmat[,9] # conferir coluna
+
 n<-nrow(reg3)
 p<-5
-corte=2*p/n
-plot(Hii, pch=19)
-lines(1:n,corte*rep(1,n))
-identify(Hii)
 
+
+corte=2*p/n
+plot(Hii, pch=1, main='Pontos de alavanca', cex=0.5)
+lines(1:n,corte*rep(1,n))
+#identify(Hii, n=2, tolerance = 2)
+```
+Temos que duas observações que são pontos de alavanca: 28 e 40.
+
+
+```{r}
 corte=pf(0.5,p,n-p)
 plot(cook)
-lines(1:n,corte*rep(1,n))
+lines(1:n,corte*rep(1,n), lty=2, col='maroon')
+```
 
-corte=2*sqrt(p/(n-p))
-plot(deffits)
-lines(1:n,corte*rep(1,n))
+```{r}
+summary(influ)
+```
+A observação 40 referente ao estado South-Carolina é apontada como influente, ela parece impactar na matriz de covariâncias e foi apontada como alavanca.
 
-# Influ?ncia global: Di
-# p=length(fit$coefficients)
-# Di=Hii*(res_pad^2)/(p*(1-Hii))
-# plot(Di)
+### Interpretação
+```{r}
+modelo
+```
+Temos que em um estado com uma taxa de criminalidade 0, com uma porcentagem de estudantes que concluíram o segundo grau de 0% e uma densidade populacional 2.684461 (máxima densidade do conjunto de dados) a expectativa de vida é aproximadamente 70 anos. 
+
+* Com o aumento de uma unidade na taxa de criminalidade a expectativa de vida diminui em média 0.29 anos.
+
+*  Com o aumento a porcentagem de estududantes a expectativa de vida aumenta em média 0.04 anos.
+
+* Com o aumento de um unidade no número de dias com temperaturas abaixo de zero a expectativa de vida diminui em média 0.007 anos.
+
+* Com o aumento de uma unidade na densidade populacional a expectativa de vida diminui em 0.45 anos.
+
+
+## 20
+
+* (i) telhados, total de telhados vendidos (em mil metros quadrados);
+* (ii) gastos, gastos pela loja com promoções do produto (em mil USD);
+* (iii) clientes, número de clientes cadastrados na loja (em milhares);
+* (iv) marcas, número de marcas concorrentes do produto;
+* (v) potencial, potencial da loja (quanto maior o valor maior o potencial). Um dos objetivos do estudo com esse conjunto de dados é tentar prever o número esperado de telhados vendidos dadas as variáveis explicativas.
+
+```{r}
+vendas<-read.table("./dados/lista1/vendas.txt", quote="\"")
+colnames(vendas) <- c("telhados",   
+                    "gastos",
+                    "clientes",
+                    "marcas",  
+                    "potencial")     
+
+```
+
+
+### Análise exploratória
+
+```{r, warning=FALSE}
+attach(vendas)
+pairs(vendas[,c(1:5)], main = "Telhados - Correlograma", pch = 20, col="aquamarine3", 
+    lower.panel = painel.prop)
+
+```
+No gráfico acima temos o diagrama de dispersão de todas as possíveis variáveis explicativas com a resposta. A que não parece ter um relacionamento linear forte com a venda de telhados é o gasto com promoções do produto.
+
+```{r}
+ajuste0<-lm(telhados~gastos+marcas+potencial+clientes, data = vendas)
+```
+### Seleção de variáveis
+
+Vamos utilizar o critério AIC para selecionar as variáveis.
+```{r}
+ajuste<-stepAIC(ajuste0,direction="backward")
+```
+As variáveis selecionadas são: gastos, marcas e clientes
+
+```{r}
+modelo<-lm(telhados ~ gastos + marcas + clientes)
+summary(modelo)
+```
+Mesmo gastos não sendo significativa ela deve estar no modelo, esse modelo foi o selecionado pelo critério AIC.
+
+
+
+
+
+### Análise de resíduos
+
+*MODELO:* telhados ~ gastos + marcas + clientes
+
+```{r}
+attach(vendas)
+y.hat<-modelo$fitted.values
+res_stud<-rstudent(modelo)
+res_pad<-rstandard(modelo)
+plot(res_stud)
+```
+
+#### Normalidade
+
+```{r}
+envel_norm(modelo)
+```
+
+Os resíduos podem ser considerados normalmente distribuídos.
+
+#### Homodedasticidade
+```{r}
+plot(y.hat,res_pad,xlab="Valores Ajustados", ylab="Resíduos Padronizados",pch=19)
+```
+Não foi identificado padrões que indiquem que os erros são heterocedásticos.
+
+#### Resíduo x variável explicativa
+```{r}
+plot(gastos, res_pad, pch=19)
+plot(clientes, res_pad, pch=19)
+plot(marcas, res_pad, pch=19)
+```
+Não parece haver mais nenhuma contribuição das variáveis explicativas gastos, clientes e marcas.
+
+**Modelo validado!**
+
+### Análise de diagnóstico
+
+```{r}
+influ<-influence.measures(modelo)
+deffits=influ$infmat[,5] # conferir coluna
+cook=influ$infmat[,7] # conferir coluna
+Hii=influ$infmat[,8] # conferir coluna
+
+n<-nrow(vendas)
+p<-4
+
+
+corte=2*p/n
+plot(Hii, pch=1, main='Pontos de alavanca', cex=0.5)
+lines(1:n,corte*rep(1,n),lty=2, col='maroon')
+#identify(Hii, n=2, tolerance = 2)
+```
+A observação 6 parece ser ponto de alavanca.
+
+```{r}
+corte=pf(0.5,p,n-p)
+plot(cook, ylim = c(0,corte+0.2))
+lines(1:n,corte*rep(1,n), lty=2, col='maroon')
+# identify(cook, n=2, tolerance = 1.5)
+```
+As observações 8 e 21 parecem ser influentes.
+
+```{r}
+summary(influ)
+```
+As observações 3 e 21 foram apontadas como influentes, elas parecem impactar na matriz de covariâncias.
+
+### Interpretação
+```{r}
+modelo
+```
+* Com o aumento de uma unidade nos gastos com promoções do produto espera-se que as vendas aumentem em média 2 unidades aproximadamente.
+
+*  Com o aumento de uma unidade no número de marcas concorrentes do produto espera-se que em média as vendas caiam em aproximadamente 21 unidades.
+
+* Com o aumento de um unidade no número de clientes cadastrados na loja espera-se que em média o número de vendas aumente em aproximadamente 3 unidades.
+
+
+## 22
+
+(i) imposto do imóvel (em 100 USD);
+(ii) área do terreno (em 1000 pés quadrados);
+(iii) área construída (em 1000 pés quadrados);
+(iv) idade da residência (em anos);
+(v) preço de venda do imóvel (em 1000 USD). Ajuste um
+modelo normal linear do preço de venda contra as demais variáveis.
+
+
+```{r}
+imoveis<-read.table("./dados/lista1/imoveis.txt", quote="\"")
+colnames(imoveis) <- c("imposto",   
+                    "area_terreno",
+                    "area_const",
+                    "idade",  
+                    "preco")     
+
+```
+
+
+### Análise exploratória
+
+```{r, warning=FALSE}
+attach(imoveis)
+pairs(imoveis[,c(1:5)], main = "Imoveis - Correlograma", pch = 20, col="aquamarine3", 
+    lower.panel = painel.prop)
+
+```
+No gráfico acima temos o diagrama de dispersão de todas as possíveis variáveis explicativas com a resposta. As variáveis imposto, área do terreno e área construída possuem uma correlação bem alta com o preço de venda do imóvel. A idade do imóvel está correlacionada com o preço do imóvel de forma negativa.
+
+```{r}
+ajuste0<-lm(preco~imposto+area_const+area_terreno+idade, data = imoveis)
+```
+### Seleção de variáveis
+
+Vamos utilizar o critério AIC para selecionar as variáveis.
+```{r}
+ajuste<-stepAIC(ajuste0,direction="backward")
+```
+As variáveis selecionadas são: imposto e área construída.
+
+```{r}
+modelo<-lm(preco ~ imposto + area_const )
+summary(modelo)
+```
+
+### Análise de resíduos
+
+*MODELO:* preco ~ imposto + area_const 
+
+```{r}
+attach(imoveis)
+y.hat<-modelo$fitted.values
+res_stud<-rstudent(modelo)
+res_pad<-rstandard(modelo)
+plot(res_stud)
+```
+#### Normalidade
+
+```{r}
+envel_norm(modelo)
+```
+
+Os resíduos podem ser considerados normalmente distribuídos.
+
+#### Homodedasticidade
+```{r}
+plot(y.hat,res_pad,xlab="Valores Ajustados", ylab="Resíduos Padronizados",pch=19)
+```
+Não foi identificado padrões que indiquem que os erros são heterocedásticos.
+
+#### Resíduo x variável explicativa
+```{r}
+plot(imposto, res_pad, pch=19)
+plot(area_const, res_pad, pch=19)
+```
+Não parece haver mais nenhuma contribuição das variáveis explicativas.
+
+**Modelo validado!**
+
+### Análise de diagnóstico
+
+```{r}
+influ<-influence.measures(modelo)
+deffits=influ$infmat[,4] # conferir coluna
+cook=influ$infmat[,6] # conferir coluna
+Hii=influ$infmat[,7] # conferir coluna
+
+n<-nrow(imoveis)
+p<-3
+
+corte=2*p/n
+plot(Hii, pch=1, main='Pontos de alavanca', cex=0.5, ylim=c(0,0.4))
+lines(1:n,corte*rep(1,n),lty=2, col='maroon')
+#identify(Hii, n=2, tolerance = 2)
+```
+A observação 10 parece ser ponto de alavanca.
+
+```{r}
+corte=pf(0.5,p,n-p)
+plot(cook)
+lines(1:n,corte*rep(1,n), lty=2, col='maroon')
+# identify(cook, n=2, tolerance = 1.5)
+```
+As observações 10 e 27 parecem ser influentes.
+
+```{r}
+summary(influ)
+```
+As observações 9, 10 e 27 foram apontadas como influentes. A 27 é ponto de alavanca e influencia na matriz de covariâncias e na estimação dos betas. 
+
+### Interpretação
+```{r}
+modelo
+```
+* Com o aumento de uma unidade no valor do imposto espera-se que o preco de venda aumente em média 2 (1000 USD) aproximadamente.
+
+* Com o aumento de uma unidade na área construída espera-se que em média o preco do imovel aumente em aproximadamente 14 mil dólares americanos.
+
+
+
+
+## 23
+
+No arquivo trees.dat é apresentado um conjunto de dados que tem sido analisado sob diversos pontos de vista por vários pesquisadores (ver, por exemplo, Jørgensen, 1989). As variáveis observadas são o diâmetro (d), a altura (h) e o volume (v) de uma amostra de 31 cerejeiras numa floresta do estado da Pensilvânia, EUA. 
+
+```{r}
+trees<-read.table("./dados/lista1/trees.txt", quote="\"")
+colnames(trees) <- c("d",   
+                    "h",
+                    "v")  
+```
+```{r}
+trees<-trees |>
+  mutate(ld=log(d),lh=log(h),lv=log(v))
+```
+
+```{r}
+attach(trees)
+modelo<-lm(lv~ld+lh)
+summary(modelo)
+```
+### Análise de resíduos
+
+*MODELO:* log(v) ~ a + blog(d)+clog(h) 
+
+```{r}
+y.hat<-modelo$fitted.values
+res_stud<-rstudent(modelo)
+res_pad<-rstandard(modelo)
+plot(res_stud)
+```
+#### Normalidade
+
+```{r}
+envel_norm(modelo)
+```
+
+Os resíduos podem ser considerados normalmente distribuídos.
+
+#### Homodedasticidade
+```{r}
+plot(y.hat,res_pad,xlab="Valores Ajustados", ylab="Resíduos Padronizados",pch=19)
+```
+Não foi identificado padrões que indiquem que os erros são heterocedásticos.
+
+#### Resíduo x variável explicativa
+```{r}
+plot(ld, res_pad, pch=19)
+plot(lh, res_pad, pch=19)
+```
+Não parece que o modelo possa ser melhorado ao incluir mais termos das variáveis explicativas.
+
+**Modelo validado!**
+
+### Análise de diagnóstico
+
+```{r}
+influ<-influence.measures(modelo)
+deffits=influ$infmat[,4] # conferir coluna
+cook=influ$infmat[,6] # conferir coluna
+Hii=influ$infmat[,7] # conferir coluna
+
+n<-nrow(trees)
+p<-3
+
+corte=2*p/n
+plot(Hii, pch=1, main='Pontos de alavanca', cex=0.5, ylim=c(0,0.4))
+lines(1:n,corte*rep(1,n),lty=2, col='maroon')
+#identify(Hii, n=2, tolerance = 2)
+```
+A observação 20 parece ser ponto de alavanca.
+
+```{r}
+corte=pf(0.5,p,n-p)
+plot(cook)
+lines(1:n,corte*rep(1,n), lty=2, col='maroon')
+# identify(cook, n=2, tolerance = 1.5)
+```
+Nenhuma observação parece influente em termos da distância de cook.
+
+```{r}
+summary(influ)
+```
+As observações 3, 20 e 31 foram apontadas como influentes, elas parecem impactar na matriz de covariâncias. 
+
+
+### Interpretação
+```{r}
+modelo
+```
+* Com o aumento de uma unidade no diâmetro espera-se que em média o volume aumento de 1.983 no volume.
+
+* Com o aumento de uma unidade altura espera-se um aumento de 1.117.
+
+## 24
+
+Tbill (taxa de retorno livre de risco), retorno Microsoft, SP500 (retorno do mercado), retorno GE e retorno FORD de janeiro de 2002 a abril de
+2003.
+
+```{r}
+capm<-read.table("./dados/lista1/capm.txt", quote="\"")
+colnames(capm) <- c("Tibill",
+                    "Micros",   
+                    "SP500",
+                    "GE",
+                    "Ford")  
+
+capm<-capm |>
+  mutate(exc.M=Micros-SP500,exc.GE=GE-SP500,exc.F=Ford-SP500, exc.mercado=SP500-Tibill)
+```
+
+```{r}
+attach(capm)
+plot(exc.M~exc.mercado, main="Microsoft")
+ml1<-lm(exc.M~exc.mercado)
+summary(ml1)
+
+plot(exc.F~exc.mercado, main="Ford")
+ml2<-lm(exc.F~exc.mercado)
+summary(ml2)
+
+
+plot(exc.GE~exc.mercado, main="GE")
+ml3<-lm(exc.GE~exc.mercado)
+summary(ml3)
 
 ```
 
