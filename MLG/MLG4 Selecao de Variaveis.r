@@ -17,7 +17,7 @@ trim <- C(trim,treatment)
 
 fit1=glm(cpue ~ frota + ano +trim + latitude + longitude, family=Gamma(link=log))
 library(MASS)
-fitf=stepAIC(fit1) # AIC
+fitf=stepAIC(fit1, direction = "backward") # AIC
 summary(fitf)
 
 fitf=stepAIC(fit1,k=log(length(cpue))) # BIC
