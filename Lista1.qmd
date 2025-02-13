@@ -23,9 +23,9 @@ source("envel_norm.r")
 
 ```
 
-## **Paula (2013): Cap. 1**
-**Análise de resíduo, validação do modelo e análise de diagnóstico.**
+# Parte A: **Paula (2013), Cap. 1**
 
+**Análise de resíduo, validação do modelo e análise de diagnóstico.**
 
 
 ## 19
@@ -110,7 +110,7 @@ summary(modelo)
 *MODELO:* expvida ~ crime + estud + ndias + dens
 
 ```{r}
-attach(reg3)
+suppressMessages(attach(reg3))
 y.hat<-modelo$fitted.values
 res_stud<-rstudent(modelo)
 res_pad<-rstandard(modelo)
@@ -248,7 +248,7 @@ Mesmo gastos não sendo significativa ela deve estar no modelo, esse modelo foi 
 *MODELO:* telhados ~ gastos + marcas + clientes
 
 ```{r}
-attach(vendas)
+suppressMessages(attach(vendas))
 y.hat<-modelo$fitted.values
 res_stud<-rstudent(modelo)
 res_pad<-rstandard(modelo)
@@ -374,7 +374,7 @@ summary(modelo)
 *MODELO:* preco ~ imposto + area_const 
 
 ```{r}
-attach(imoveis)
+suppressMessages(attach(imoveis))
 y.hat<-modelo$fitted.values
 res_stud<-rstudent(modelo)
 res_pad<-rstandard(modelo)
@@ -461,7 +461,7 @@ trees<-trees |>
 ```
 
 ```{r}
-attach(trees)
+suppressMessages(attach(trees))
 modelo<-lm(lv~ld+lh)
 summary(modelo)
 ```
@@ -555,21 +555,658 @@ capm<-capm |>
   mutate(exc.M=Micros-SP500,exc.GE=GE-SP500,exc.F=Ford-SP500, exc.mercado=SP500-Tibill)
 ```
 
+##### Microsoft
+
 ```{r}
 attach(capm)
 plot(exc.M~exc.mercado, main="Microsoft")
+n<-nrow(capm)
+p<-2
 ml1<-lm(exc.M~exc.mercado)
 summary(ml1)
 
+t.quantil<-qt(0.025,df=n-p, lower.tail = F)
+LI<-(-0.02558) - 0.07406*sqrt(t.quantil)
+LS<-(-0.02558) + 0.07406*sqrt(t.quantil)
+```
+
+* O parâmetro $\alpha$ não é significativo para o modelo.
+
+* IC($\beta_1$,95%) = [`r LI`; `r LS`], o intervalo para beta inclui o valor zero. Dessa forma, não podemos dizer que ele é diferente de 0.
+O parâmetro beta também não é significativo.
+
+
+**Análise dos resíduos**
+
+```{r}
+y.hat<-ml1$fitted.values
+res_stud<-rstudent(ml1)
+plot(y.hat,res_stud)
+```
+```{r}
+envel_norm(ml1)
+```
+Os resíduos parecem bem comportados. Mas o modelo não foi validado, os parâmetros não são significativos.
+
+**Diagnóstico**
+
+Em termos práticos, o modelo não foi validado e não teríamos chegado nessa etapa.
+
+```{r}
+influ<-influence.measures(ml1)
+deffits=influ$infmat[,3] # conferir coluna
+cook=influ$infmat[,5] # conferir coluna
+Hii=influ$infmat[,6] # conferir coluna
+
+n<-nrow(capm)
+p<-2
+
+corte=2*p/n
+plot(Hii, pch=1, main='Pontos de alavanca', cex=0.5)
+lines(1:n,corte*rep(1,n),lty=2, col='maroon')
+#identify(Hii, n=2, tolerance = 2)
+```
+Temos algumas observações como ponto de alavanca.
+
+```{r}
+corte=pf(0.5,p,n-p)
+plot(cook)
+lines(1:n,corte*rep(1,n), lty=2, col='maroon')
+# identify(cook, n=2, tolerance = 1.5)
+```
+Nenhuma observação parece influente em termos da distância de cook.
+```{r}
+dffit=influ$infmat[,3]
+corte=2*sqrt(p/(n-p))
+plot(dffit)
+lines(1:n,corte*rep(1,n), col="maroon")
+
+```
+```{r}
+summary(influ)
+```
+Algumas observações são apontadas como influentes em termos da medida Dffit.
+
+##### Ford
+
+
+```{r}
 plot(exc.F~exc.mercado, main="Ford")
 ml2<-lm(exc.F~exc.mercado)
 summary(ml2)
 
+t.quantil<-qt(0.025,df=n-p, lower.tail = F)
+LI<-(0.18828) -  0.09258*sqrt(t.quantil)
+LS<-(0.18828) +  0.09258*sqrt(t.quantil)
+```
+* O parâmetro $\alpha$ não é significativo para o modelo.
 
+* IC($\beta_1$,95%) = [`r LI`; `r LS`], temos 95% de confiabilidade de que o intervalo inclui o verdadeiro valor do parâmetro.
+
+
+
+
+**Análise dos resíduos**
+
+```{r}
+y.hat<-ml2$fitted.values
+res_stud<-rstudent(ml2)
+plot(res_stud)
+```
+Temos 4 observações atípicas 190,199,222 e 229.
+```{r}
+envel_norm(ml2)
+```
+Os resíduos parecem bem comportados.
+
+**Diagnóstico**
+```{r}
+influ<-influence.measures(ml2)
+deffits=influ$infmat[,3] # conferir coluna
+cook=influ$infmat[,5] # conferir coluna
+Hii=influ$infmat[,6] # conferir coluna
+
+n<-nrow(capm)
+p<-2
+
+corte=2*p/n
+plot(Hii, pch=1, main='Pontos de alavanca', cex=0.5)
+lines(1:n,corte*rep(1,n),lty=2, col='maroon')
+#identify(Hii, n=2, tolerance = 2)
+```
+Temos algumas observações que são alavanca.
+
+```{r}
+corte=pf(0.5,p,n-p)
+plot(cook)
+lines(1:n,corte*rep(1,n), lty=2, col='maroon')
+# identify(cook, n=2, tolerance = 1.5)
+```
+
+Nenhuma observação parece influente em termos da distância de cook.
+```{r}
+dffit=influ$infmat[,3]
+corte=2*sqrt(p/(n-p))
+plot(dffit)
+lines(1:n,corte*rep(1,n), col="maroon")
+```
+
+```{r}
+summary(influ)
+```
+Algumas observações são apontadas como influentes em termos da medida Dffit também, inclusive as que foram apontadas como atípicas.
+
+###### GE
+```{r}
 plot(exc.GE~exc.mercado, main="GE")
 ml3<-lm(exc.GE~exc.mercado)
 summary(ml3)
 
+
+t.quantil<-qt(0.025,df=n-p, lower.tail = F)
+LI<-(0.31153) -  0.05168*sqrt(t.quantil)
+LS<-(0.31153) +  0.05168*sqrt(t.quantil)
+```
+* O parâmetro $\alpha$ não é significativo para o modelo.
+
+* IC($\beta_1$,95%) = [`r LI`; `r LS`], o intervalo contém o verdadeiro valor do parâmetro com 95% de confiabilidade.
+
+**Análise dos resíduos**
+
+```{r}
+y.hat<-ml3$fitted.values
+res_stud<-rstudent(ml3)
+plot(res_stud)
+```
+Temos algumas observações discrepantes: 68, 131, 175 e 222.
+
+```{r}
+envel_norm(ml3)
+```
+Os resíduos parecem bem comportados, apesar das observações atípicas.
+
+**Diagnóstico**
+
+```{r}
+influ<-influence.measures(ml3)
+deffits=influ$infmat[,3] # conferir coluna
+cook=influ$infmat[,5] # conferir coluna
+Hii=influ$infmat[,6] # conferir coluna
+
+n<-nrow(capm)
+p<-2
+
+corte=2*p/n
+plot(Hii, pch=1, main='Pontos de alavanca', cex=0.5)
+lines(1:n,corte*rep(1,n),lty=2, col='maroon')
+#identify(Hii, n=2, tolerance = 2)
+```
+Temos algumas observações como ponto de alavanca.
+
+```{r}
+corte=pf(0.5,p,n-p)
+plot(cook)
+lines(1:n,corte*rep(1,n), lty=2, col='maroon')
+# identify(cook, n=2, tolerance = 1.5)
+```
+Nenhuma observação parece influente em termos da distância de cook.
+```{r}
+dffit=influ$infmat[,3]
+corte=2*sqrt(p/(n-p))
+plot(dffit)
+lines(1:n,corte*rep(1,n), col="maroon")
+
+```
+
+```{r}
+summary(influ)
+```
+Algumas observações são apontadas como influentes em termos da medida Dffif, essa lista inclui as observações com resíduo alto.
+
+## 25
+
+* (i) o preço de venda de um imóvel (em mil
+USD);
+* (ii) a área total (em pés quadrados).
+
+```{r}
+area <- c(800, 950, 910, 950, 1200, 1000, 1180, 1000,
+            1380, 1250, 1500, 1200, 1600, 1650, 1600, 1680,
+            1500, 1780, 1790, 1900, 1760, 1850, 1800, 1700,
+            1370, 2000, 2000, 2100, 2050, 1990, 2150, 2050,
+            2200, 2200, 2180, 2250, 2400, 2350, 2500, 2500,
+            2500, 2500, 2680, 2210, 2750, 2500, 2400, 3100,
+            2100, 4000)
+preco<- c(30.6, 31.5, 33.3, 45.9, 47.4, 48.9, 51.6, 53.1,
+             54.0, 54.3, 55.2, 55.2, 56.7, 57.9, 58.5, 59.7,
+             60.9, 60.9, 62.4, 63.0, 64.5, 66.0, 66.3, 67.5,
+             68.4, 68.4, 68.7, 69.6, 70.5, 74.7, 75.0, 75.3,
+             79.8, 80.7, 80.7, 83.4, 84.0, 86.1, 87.0, 90.3,
+             96.0, 101.4, 105.9, 111.3, 112.5, 114.0, 115.2, 117.0,
+             129.0, 165.0)
+venda <- data.frame(area,preco)
+colnames(venda) <- c("area","preco")
+suppressMessages(attach(venda))
 ```
 
 
+### Análise exploratória
+
+```{r, warning=FALSE}
+pairs(venda[,c(1:2)], main = "Venda Imóveis - Correlograma", pch = 20, col="aquamarine3", 
+    lower.panel = painel.prop)
+
+```
+No gráfico acima temos o diagrama de dispersão do preço e da área, possuem uma correlação bem alta.
+
+```{r}
+modelo<-lm(preco~area, data = venda)
+```
+
+```{r}
+summary(modelo)
+```
+
+### Análise de resíduos
+
+*MODELO:* preco ~ area 
+
+```{r}
+y.hat<-modelo$fitted.values
+res_stud<-rstudent(modelo)
+res_pad<-rstandard(modelo)
+plot(res_stud)
+```
+Observação 49 é atípica.
+#### Normalidade
+
+```{r}
+envel_norm(modelo)
+```
+
+Os resíduos não podem ser considerados normalmente distribuídos.
+
+#### Homodedasticidade
+```{r}
+plot(y.hat,res_pad,xlab="Valores Ajustados", ylab="Resíduos Padronizados",pch=19)
+```
+Não foi identificado padrões que indiquem que os erros são heterocedásticos.
+
+#### Resíduo x variável explicativa
+```{r}
+plot(area, res_pad, pch=19)
+```
+Não parece haver mais nenhuma contribuição da variável explicativa.
+
+**Modelo não validado!!!**
+
+##### Tranformação log(preco)
+
+Vamos tentar a transfromação log para tentar normalizar os resíduos.
+```{r}
+modelo<-lm(log(preco)~area)
+summary(modelo)
+```
+```{r}
+y.hat<-modelo$fitted.values
+res_stud<-rstudent(modelo)
+res_pad<-rstandard(modelo)
+plot(res_stud)
+```
+Observação 49 é atípica.
+
+#### Normalidade
+
+```{r}
+envel_norm(modelo)
+```
+
+Agora parece razoável dizer que os resíduos são normalmente distribuídos.
+
+#### Homodedasticidade
+```{r}
+plot(y.hat,res_pad,xlab="Valores Ajustados", ylab="Resíduos Padronizados",pch=19)
+```
+Não foi identificado padrões que indiquem que os erros são heterocedásticos.
+
+#### Resíduo x variável explicativa
+```{r}
+plot(area, res_pad, pch=19)
+```
+Nenhum padrão.
+
+**Modelo validado após a transformação: log(preco) ~ area**
+
+
+### Análise de diagnóstico
+
+```{r}
+influ<-influence.measures(modelo)
+deffits=influ$infmat[,3] # conferir coluna
+cook=influ$infmat[,5] # conferir coluna
+Hii=influ$infmat[,6] # conferir coluna
+
+n<-nrow(venda)
+p<-3
+
+corte=2*p/n
+plot(Hii, pch=1, main='Pontos de alavanca', cex=0.5, ylim=c(0,0.4))
+lines(1:n,corte*rep(1,n),lty=2, col='maroon')
+#identify(Hii, n=2, tolerance = 2)
+```
+A observação 50, além de ser atípica é ponto de alavanca.
+```{r}
+corte=pf(0.5,p,n-p)
+plot(cook)
+lines(1:n,corte*rep(1,n), lty=2, col='maroon')
+# identify(cook, n=2, tolerance = 1.5)
+```
+A observação 50 também parece ser influente.
+
+```{r}
+summary(influ)
+```
+A observação 50 é preocupante.
+
+
+# Parte B 
+
+Ajustar modelos de regressão aos dados (y_ex1.txt,X_ex1.txt), (y_ex2.txt,X_ex2.txt) e (y_ex3.txt,X_ex3.txt). Verificar pressupostos e
+fazer eventuais correções.
+
+## Exemplo 1
+```{r}
+suppressMessages(y_ex1 <- read.table("C:/ufjf/2024.3/ModelosLinearesGeneralizados/dados/lista1/y_ex1.txt", quote="\"", comment.char=""))
+
+library(readr)
+X_ex1 <- read_table("dados/lista1/X_ex1.txt")
+d1<-cbind(y_ex1,X_ex1)
+suppressMessages(colnames(d1)<-c("y","x1","x2","x3"))
+```
+
+### Análise exploratória
+
+```{r, warning=FALSE}
+pairs(d1[,c(1,3,4)], main = "Correlograma", pch = 20, col="aquamarine3", 
+    lower.panel = painel.prop)
+
+```
+No gráfico acima temos o diagrama de dispersão das explicativas com a resposta.
+```{r}
+suppressMessages(attach(d1))
+modelo<-lm(y~1+x2+x3, data = d1)
+summary(modelo)
+```
+
+
+### Análise de resíduos
+
+```{r}
+y.hat<-modelo$fitted.values
+res_stud<-rstudent(modelo)
+res_pad<-rstandard(modelo)
+plot(res_stud)
+```
+#### Normalidade
+
+```{r}
+envel_norm(modelo)
+```
+
+Os resíduos estão bem comportados e podemos assumir normalidade.
+
+#### Homodedasticidade
+```{r}
+plot(y.hat,res_stud,xlab="Valores Ajustados", ylab="Resíduos Padronizados",pch=19)
+```
+Não foi identificado padrões que indiquem que os erros são heterocedásticos.
+
+#### Resíduo x variável explicativa
+```{r}
+attach(d1)
+plot(x2, res_pad, pch=19)
+plot(x3, res_pad, pch=19)
+
+```
+Não parece haver mais nenhuma contribuição das variáveis explicativas.
+
+**Modelo  y ~ 1+ x2 + x3 validado, os presuposto foram atendidos!!!**
+
+
+## Exemplo 2
+```{r}
+suppressMessages(y_ex2 <- read.table("C:/ufjf/2024.3/ModelosLinearesGeneralizados/dados/lista1/y_ex2.txt", quote="\"", comment.char=""))
+
+library(readr)
+X_ex2 <- read_table("dados/lista1/X_ex2.txt", 
+    col_names = FALSE)
+d2<-cbind(y_ex2,X_ex2)
+suppressMessages(colnames(d2)<-c("y","x1","x2","x3"))
+```
+
+### Análise exploratória
+
+```{r, warning=FALSE}
+pairs(d2[,c(1,3,4)], main = "Correlograma", pch = 20, col="aquamarine3", 
+    lower.panel = painel.prop)
+
+```
+No gráfico acima temos o diagrama de dispersão das explicativas com a resposta.
+```{r}
+suppressMessages(attach(d2))
+modelo<-lm(y~1+x2+x3, data = d1)
+summary(modelo)
+```
+
+### Análise de resíduos
+
+```{r}
+y.hat<-modelo$fitted.values
+res_stud<-rstudent(modelo)
+res_pad<-rstandard(modelo)
+plot(res_stud)
+```
+#### Normalidade
+
+```{r}
+envel_norm(modelo)
+```
+
+Os resíduos estão bem comportados e podemos assumir normalidade.
+
+#### Homodedasticidade
+```{r}
+plot(y.hat,res_pad,xlab="Valores Ajustados", ylab="Resíduos Padronizados",pch=19)
+```
+Não foi identificado padrões que indiquem que os erros são heterocedásticos.
+
+#### Resíduo x variável explicativa
+```{r}
+suppressMessages(attach(d2))
+plot(x2, res_pad, pch=19)
+plot(x3, res_pad, pch=19)
+
+```
+Não parece haver mais nenhuma contribuição das variáveis explicativas.
+
+**Modelo  y ~ 1+ x2 + x3 validado, os presuposto foram atendidos!!!**
+
+
+
+## Exemplo 3
+
+```{r}
+suppressMessages(y_ex3 <- read.table("C:/ufjf/2024.3/ModelosLinearesGeneralizados/dados/lista1/y_ex3.txt", quote="\"", comment.char=""))
+
+library(readr)
+X_ex3 <- read_table("dados/lista1/X_ex3.txt", 
+    col_names = FALSE)
+d3<-cbind(y_ex3,X_ex3)
+suppressMessages(colnames(d3)<-c("y","x1","x2","x3"))
+```
+
+### Análise exploratória
+
+```{r, warning=FALSE}
+pairs(d3[,c(1,3,4)], main = "Correlograma", pch = 20, col="aquamarine3",
+      lower.panel = painel.prop)
+
+```
+No gráfico acima temos o diagrama de dispersão das explicativas com a resposta. A variável possui um relacionamento não linear com a resposta.
+```{r}
+suppressMessages(attach(d3))
+modelo<-lm(y~1+x2+x3, data = d3)
+summary(modelo)
+```
+### Seleção de variáveis
+```{r}
+stepAIC(modelo, direction = "backward")
+```
+O intercepto e x3 não são significativas, porém o modelo com ela é o que possui menor AIC.
+
+**MODELO:** y ~ 1 + x2 + x3
+
+### Análise de resíduos
+
+```{r}
+y.hat<-modelo$fitted.values
+res_stud<-rstudent(modelo)
+res_pad<-rstandard(modelo)
+plot(res_stud)
+```
+#### Normalidade
+
+```{r}
+envel_norm(modelo)
+```
+
+Os resíduos não podem ser considerados normais.
+
+#### Homodedasticidade
+```{r}
+plot(y.hat,res_stud,xlab="Valores Ajustados", ylab="Resíduos Padronizados",pch=19)
+```
+O padrão nos resíduos é igual ao do gráfico de dispersão da variável x2 com a resposta.
+
+#### Resíduo x variável explicativa
+```{r}
+
+plot(x2, res_stud, pch=19)
+plot(x3, res_stud, pch=19)
+
+```
+Vamos incluir a variável $x_2^2$.
+
+**Modelo  y ~ 1+ x2 + x3 não está validado validado, os presuposto não foram atendidos!!!**
+
+**MODELO:** y ~ 1 + x2 + x3 + x2^2
+
+```{r}
+modelo<-lm(y~1+x2+x3+I(x2^2))
+summary(modelo)
+```
+
+### Análise de resíduos
+
+```{r}
+y.hat<-modelo$fitted.values
+res_stud<-rstudent(modelo)
+res_pad<-rstandard(modelo)
+plot(res_stud)
+```
+#### Normalidade
+
+```{r}
+envel_norm(modelo)
+```
+
+Os resíduos ainda não podem ser considerados normais.
+
+#### Homodedasticidade
+```{r}
+plot(y.hat,res_stud,xlab="Valores Ajustados", ylab="Resíduos estudentizados",pch=19)
+```
+Os resíduos não parecem ter variância constante.
+
+#### Resíduo x variável explicativa
+```{r}
+plot(x2, res_stud, pch=19)
+plot(x3, res_stud, pch=19)
+```
+Vamos incluir a variável $x_3^2$.
+
+**Modelo  y ~ 1+ x2 + x2^2 + x3 não está validado validado, os presuposto não foram atendidos!!!**
+
+### Mudanças
+
+```{r}
+modelo<-lm(y~1+x2+x3+I(x2^2)+I(x3^2))
+summary(modelo)
+```
+
+### Análise de resíduos
+
+```{r}
+y.hat<-modelo$fitted.values
+res_stud<-rstudent(modelo)
+res_pad<-rstandard(modelo)
+plot(res_stud)
+```
+#### Normalidade
+
+```{r}
+envel_norm(modelo)
+```
+
+Os resíduos ainda não seguindo uma normal.
+
+#### Homodedasticidade
+```{r}
+plot(y.hat,res_stud,xlab="Valores Ajustados", ylab="Resíduos estudentizados",pch=19)
+```
+Os resíduos não parecem ter variância constante.
+
+#### Resíduo x variável explicativa
+```{r}
+plot(x2, res_stud, pch=19)
+plot(x3, res_stud, pch=19)
+```
+Vamos incluir a variável $x_3^3$.
+
+**Modelo  y ~ 1+ x2 + x2^2 + x3 + x3^2 não está validado, os presuposto não foram atendidos!!!**
+
+### Mudanças
+
+```{r}
+modelo<-lm(y~1+x2+x3+I(x2^2)+I(x3^2)+I(x3^3))
+summary(modelo)
+```
+
+### Análise de resíduos
+
+```{r}
+y.hat<-modelo$fitted.values
+res_stud<-rstudent(modelo)
+res_pad<-rstandard(modelo)
+plot(res_stud)
+```
+#### Normalidade
+
+```{r}
+envel_norm(modelo)
+```
+
+Os resíduos ainda não estão ótimos, mas estão razoáveis.
+
+#### Homodedasticidade
+```{r}
+plot(y.hat,res_stud,xlab="Valores Ajustados", ylab="Resíduos estudentizados",pch=19)
+```
+Os resíduos não parecem ter variância constante.
+
+#### Resíduo x variável explicativa
+```{r}
+plot(x2, res_stud, pch=19)
+plot(x3, res_stud, pch=19)
+```
+Não consegui chegar em um modelo validado adicionando mais termos das variáveis explicativas. Talvez seja necessário aplicar outra metodologia.

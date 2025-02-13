@@ -1,0 +1,75 @@
+eta2.pois <- function(modelo=fit.model,offvar=NULL,maxit=20) {
+
+#
+# Descrição e detalhes:
+# McCullagh e Nelder (1989), pág.401, citam que uma forma de checar formalmente a má especificação da função de
+# ligação ou falta de covariadas no modelo é adicionar o quadrado do preditor linear ajustado como uma covariada
+# extra e analisar a queda no desvio.
+#
+# Essa função automaticamente pega um modelo ajustado com distribuição de Poisson e lista o seu desvio escalonado, o
+# obtido adicionando o preditor linear ao quadrado e faz um teste de razão de verossimilhanças comparando os dois.
+# É necessário ter a função rv.glm instalada.
+# 
+# Os dados devem estar disponíveis pelo comando attach( ).
+#
+# Argumentos obrigatórios:
+# modelo: deve-se informar o objeto onde está o ajuste do modelo com distribuição gama, caso não seja informado, a
+# 	  função procurará o ajuste no objeto fit.model;
+#
+# Argumentos opcionais:
+# offvar: o S-Plus não armazena no objeto do ajuste o offset, portanto se estiver utilizando offset precisa informá-lo
+#	  aqui. Quando estiver no R, a função ignora essa opção e pega o offset diretamente do ajuste;
+# maxit: essa é utilizada no ajustes do novo modelo. O padrão é maxit=20.
+#
+# Autor: Frederico Zanqueta Poleto <fred@poleto.com>, arquivo disponível em http://www.poleto.com
+#
+# Referência:
+# MCCULLAGH, P. e NELDER, J. A. (1989). Generalized Linear Models. 2ª ed. Chapman and Hall, London.
+#
+# Exemplo:
+# eta2.pois(ajuste)
+#
+
+if(class(modelo)[1] != "glm") {
+	stop(paste("\nA classe do objeto deveria ser glm e nao ",class(modelo),"!!!\n"))
+}
+if(modelo$family[[1]] != "Poisson" & modelo$family[[1]] != "poisson") {
+	stop(paste("\nA familia do objeto deveria ser Poisson e nao ",modelo$family[[1]],"!!!\n"))
+}
+
+X <- model.matrix(modelo)
+n<-nrow(X)
+y <- modelo$y
+
+if(is.null(version$language) == F) {
+	offvar<-modelo$offset
+}
+if(is.null(offvar)) {
+	offvar<-rep(0,n)
+} else {
+	if (length(offvar)!=n) {
+		stop(paste("\nO vetor do offset deve conter o mesmo comprimento das variaveis do modelo !!!\n"))
+	}
+}
+
+pl2 <- predict(modelo)^2
+link<-modelo$family["link"]
+X2<-cbind(X,pl2)
+if ( (is.null(version$language) == T && link == "Log: log(mu)") | (is.null(version$language) == F && link == "log") ) {
+	modelo2 <- glm(y ~ X2-1+offset(offvar),family=poisson,maxit=maxit)
+} else {
+	if ( (is.null(version$language) == T && link == "Square Root: sqrt(mu)") | (is.null(version$language) == F && link == "sqrt") ) {
+		modelo2 <- glm(y ~ X2-1+offset(offvar),family=poisson(link=sqrt),maxit=maxit)
+	} else {
+		if ( (is.null(version$language) == T && link == "Identity: mu") | (is.null(version$language) == F && link == "identity") ) {
+			modelo2 <- glm(y ~ X2-1+offset(offvar),family=poisson(link=identity),maxit=maxit)
+		} else {
+			stop(paste("\nEsta funcao so aceita as ligacoes: canonica (log), raiz quadrada e identidade!!!\nLigacao ",link," desconhecida!!!\n"))
+		}
+	}
+}
+
+cat("H0: Without Eta^2: deviance",round(summary(modelo)$deviance,digits=6),"on",summary(modelo)$df[2],"degrees of freedom\n")
+cat("H1: With Eta^2   : deviance",round(summary(modelo2)$deviance,digits=6),"on",summary(modelo2)$df[2],"degrees of freedom\n\n")
+rv.glm(modelo,modelo2)
+}

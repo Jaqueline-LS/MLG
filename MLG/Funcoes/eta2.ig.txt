@@ -1,0 +1,77 @@
+eta2.ig <- function(modelo=fit.model,link="1/mu^2",maxit=20) {
+
+#
+# Descrição e detalhes:
+# McCullagh e Nelder (1989), pág.401, citam que uma forma de checar formalmente a má especificação da função de
+# ligação ou falta de covariadas no modelo é adicionar o quadrado do preditor linear ajustado como uma covariada
+# extra e analisar a queda no desvio.
+#
+# O S-Plus só permite ajustar a normal inversa com ligação canônica (1/mu^2). O R permite também com ligações
+# inverse e log. No entanto, o R tem um bug, pois armazena sempre no objeto ajustado que utilizou a ligação canônica.
+# Assim, se utilizar uma ligação que não seja a canônica no R, deve-se informar para a função através da opção link.
+#
+# Essa função automaticamente pega um modelo ajustado com distribuição normal inversa e lista o seu desvio escalonado,
+# o obtido adicionando o preditor linear ao quadrado e faz um teste de razão de verossimilhanças comparando os dois.
+# É necessário ter a função rv.ig instalada.
+#
+# Os dados devem estar disponíveis pelo comando attach( ).
+#
+# Argumentos obrigatórios:
+# modelo: deve-se informar o objeto onde está o ajuste do modelo com distribuição gama, caso não seja informado, a
+# 	  função procurará o ajuste no objeto fit.model;
+#
+# Argumentos opcionais:
+# link: padrão "1/mu^2", que é a ligação canônica (1/mu^2). Se utilizar a ligação log, informe "log" e se utilizar
+#	a ligação inversa, informe "inverse";
+# maxit: essa é utilizada no ajustes do novo modelo. O padrão é maxit=20.
+#
+# Autor: Frederico Zanqueta Poleto <fred@poleto.com>, arquivo disponível em http://www.poleto.com
+#
+# Referência:
+# MCCULLAGH, P. e NELDER, J. A. (1989). Generalized Linear Models. 2ª ed. Chapman and Hall, London.
+#
+# Exemplo:
+# eta2.ig(ajuste)
+#
+
+if(class(modelo)[1] != "glm") {
+	stop(paste("\nA classe do objeto deveria ser glm e nao ",class(modelo),"!!!\n"))
+}
+if(modelo$family[[1]] != "Inverse Gaussian" & modelo$family[[1]] != "inverse.gaussian") {
+	stop(paste("\nA familia do objeto deveria ser da normal inversa !!!\n"))
+}
+if(link!="1/mu^2") {
+	if(is.null(version$language) == T) {
+		stop(paste("\nO S-Plus só aceita a ligação canônica!!!\n"))
+	} else {
+		if(link!="inverse" & link!="log") {
+			stop(paste("\nO R só aceita as ligações canônica (1/mu^2), inversa (1/mu) e log!!!\n"))
+		}
+	}
+}
+
+X <- model.matrix(modelo)
+n <- nrow(X)
+p <- ncol(X)
+m<-predict(modelo,type="response")
+y <- modelo$y
+
+pl2 <- predict(modelo)^2
+X2<-cbind(X,pl2)
+if (link == "1/mu^2") {
+	modelo2 <- glm(y ~ X2-1,family=inverse.gaussian,maxit=maxit)
+} else {
+	if (link == "inverse") {
+		modelo2 <- glm(y ~ X2-1,family=inverse.gaussian(link=inverse),maxit=maxit)
+	}
+	if (link == "log") {
+		modelo2 <- glm(y ~ X2-1,family=inverse.gaussian(link=log),maxit=maxit)
+	}
+}
+fi<-1/summary(modelo)$dispersion
+fi2<-1/summary(modelo2)$dispersion
+
+cat("H0: Without Eta^2: scaled deviance",round(summary(modelo)$deviance*fi,digits=6),"and deviance",round(summary(modelo)$deviance,digits=6),"on",summary(modelo)$df[2],"degrees of freedom\n")
+cat("H1: With Eta^2   : scaled deviance",round(summary(modelo2)$deviance*fi2,digits=6),"and deviance",round(summary(modelo2)$deviance,digits=6),"on",summary(modelo2)$df[2],"degrees of freedom\n\n")
+rv.ig(modelo,modelo2)
+}

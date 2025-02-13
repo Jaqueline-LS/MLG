@@ -1,0 +1,68 @@
+rv.glm<-function(fit0,fit1,fi=NULL) {
+
+#
+# Descrição e detalhes:
+# Esta função calcula o valor da razão de verossimilhanças para testar hipóteses simples (beta=b0).
+#
+# Só é adequado fazer o teste se o parâmetro de forma for conhecido (poisson e binomial). Assim, se estiver com um modelo
+# normal linear, gama, normal inversa ou binomial negativa, utilize respectivamente as funções testef, rv.gama, rv.ig e
+# rv.nb.
+#
+# Os dados devem estar disponíveis pelo comando attach( ).
+#
+# Argumentos obrigatórios:
+# fit0: ajuste do modelo sob H0;
+# fit1: ajuste do modelo sob H1;
+#
+# Argumentos opcionais:
+# fi: opção para informar o parâmetro de forma (1/dispersion), caso seja conhecido e diferente de 1.
+#
+# A saída será o valor da estatística de razão de verossimilhanças juntamente com os graus de liberdade e o
+# nível descritivo.
+#
+# Autor: Frederico Zanqueta Poleto <fred@poleto.com>, arquivo disponível em http://www.poleto.com
+#
+# Referência:
+# PAULA, G. A. (2003). Modelos de Regressão com apoio computacional. IME-USP, São Paulo. [Não publicado,
+#    disponível em http://www.ime.usp.br/~giapaula/Book.pdf]
+#
+# Exemplo:
+# rv.glm(ajuste.sobH0,ajuste.sobH1)
+#
+
+if(class(fit0)[1]=="lm") {
+	stop(paste("\nPara o modelo normal linear utilize o teste F, funcao testef !\n"))
+}
+if(fit0$family[[1]] == "Gamma") {
+	stop(paste("\nPara fazer um teste de razao de verossimilhancas na distribuicao gama utilize a funcao rv.gama !\n"))
+}
+if(fit0$family[[1]] == "Inverse Gaussian" | fit0$family[[1]] == "inverse.gaussian") {
+	stop(paste("\nPara fazer um teste de razao de verossimilhancas na distribuicao normal inversa utilize a funcao rv.ig !\n"))
+}
+if(class(fit0)[1] == "negbin") {
+	stop(paste("\nPara fazer um teste de razao de verossimilhancas na distribuicao binomial negativa utilize a funcao rv.nb !\n"))
+}
+if( (class(fit0)[1] != "glm") | (class(fit1)[1] != "glm") ) {
+	stop(paste("\nAs classes dos dois objetos deveriam ser glm !!!\n"))
+}
+if(fit0$family[[2]] != fit1$family[[2]]) {
+	stop(paste("\nAs funcoes de ligacao dos objetos deveriam ser as mesmas !!!\n"))
+}
+if(is.null(fi)) {
+	fi0<-1/summary(fit0)$dispersion
+	fi1<-1/summary(fit1)$dispersion
+} else {
+	fi0<-fi
+	fi1<-fi
+}
+
+dev0<-deviance(fit0)
+dev1<-deviance(fit1)
+p=ncol(model.matrix(fit1))
+
+x2<-as.numeric(fi0)*dev0-as.numeric(fi1)*dev1
+
+pvalue<-1-pchisq(x2,p)
+
+list(X2=x2,gl=p,pvalue=pvalue)
+}

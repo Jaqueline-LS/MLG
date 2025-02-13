@@ -1,0 +1,52 @@
+testef<-function(fit0,fit1) {
+
+#
+# Descricaoo e detalhes:
+# Esta fun??o calcula o valor da estat?stica F para testar dois modelos lineares generalizados encaixados.
+#
+# S? ? adequado fazer o teste se o par?metro de forma for grande (para gama e normal inversa) ou conhecido
+# (poisson e binomial) ou no caso normal linear (que ? um teste exato).
+#
+# Os dados devem estar dispon?veis pelo comando attach( ).
+#
+# Argumentos obrigat?rios:
+# fit0: ajuste do modelo sob H0;
+# fit1: ajuste do modelo sob H1.
+#
+# A sa?da ser? o valor da estat?stica F juntamente com os graus de liberdade e o n?vel descritivo.
+#
+# Autor: Frederico Zanqueta Poleto <fred@poleto.com>, arquivo dispon?vel em http://www.poleto.com
+#
+# Refer?ncia:
+# PAULA, G. A. (2003). Modelos de Regress?o com apoio computacional. IME-USP, S?o Paulo. [N?o publicado,
+#    dispon?vel em http://www.ime.usp.br/~giapaula/Book.pdf]
+#
+# Exemplo:
+# testef(ajuste.sobH0,ajuste.sobH1)
+#
+
+if( (class(fit0)[1]=="lm" | class(fit0)[1]=="glm") & (class(fit1)[1]=="lm" | class(fit1)[1]=="glm") & (class(fit0)[1]==class(fit1)[1]) ) {
+
+} else {
+	stop(paste("\nA classe dos dois objetos deveriam iguais (lm ou glm) !!!\n"))
+}
+if(class(fit0)[1]=="glm") {
+	if(fit0$family[[1]] != fit1$family[[1]]) {
+		stop(paste("\nAs familias dos objetos deveriam ser as mesmas !!!\n"))
+	}
+	if(fit0$family[[2]] != fit1$family[[2]]) {
+		stop(paste("\nAs fun??es de liga??o dos objetos deveriam ser as mesmas !!!\n"))
+	}
+}
+
+dev0<-deviance(fit0)
+dev1<-deviance(fit1)
+df0<-summary(fit0)$df[2]
+df1<-summary(fit1)$df[2]
+
+f<-((dev0-dev1)/(df0-df1))/(dev1/df1)
+
+pvalue<-1-pf(f,df0-df1,df1)
+
+list(f=f,df1=df0-df1,df2=df1,pvalue=pvalue)
+}

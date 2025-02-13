@@ -1,0 +1,64 @@
+eta2.gama <- function(modelo=fit.model,maxit=20) {
+
+#
+# Descrição e detalhes:
+# McCullagh e Nelder (1989), pág.401, citam que uma forma de checar formalmente a má especificação da função de
+# ligação ou falta de covariadas no modelo é adicionar o quadrado do preditor linear ajustado como uma covariada
+# extra e analisar a queda no desvio.
+#
+# Essa função automaticamente pega um modelo ajustado com distribuição gama e lista o seu desvio escalonado, o obtido
+# adicionando o preditor linear ao quadrado e faz um teste de razão de verossimilhanças comparando os dois.
+# É necessário ter a função rv.gama instalada.
+# 
+# Os dados devem estar disponíveis pelo comando attach( ).
+#
+# Argumentos obrigatórios:
+# modelo: deve-se informar o objeto onde está o ajuste do modelo com distribuição gama, caso não seja informado, a
+# 	  função procurará o ajuste no objeto fit.model.
+#
+# Argumentos opcionais:
+# maxit: essa é utilizada no ajustes do novo modelo. O padrão é maxit=20.
+#
+# Autor: Frederico Zanqueta Poleto <fred@poleto.com>, arquivo disponível em http://www.poleto.com
+#
+# Referência:
+# MCCULLAGH, P. e NELDER, J. A. (1989). Generalized Linear Models. 2ª ed. Chapman and Hall, London.
+#
+# Exemplo:
+# eta2.gama(ajuste)
+#
+
+if(class(modelo)[1] != "glm") {
+	stop(paste("\nA classe do objeto deveria ser glm e nao ",class(modelo),"!!!\n"))
+}
+if(modelo$family[[1]] != "Gamma") {
+	stop(paste("\nA familia do objeto deveria ser Gamma e nao ",modelo$family[[1]],"!!!\n"))
+}
+
+X <- model.matrix(modelo)
+y <- modelo$y
+library("MASS")
+fi<- 1/gamma.dispersion(modelo)
+
+pl2 <- predict(modelo)^2
+link<-modelo$family["link"]
+X2<-cbind(X,pl2)
+if ( (is.null(version$language) == T && link == "Log: log(mu)") | (is.null(version$language) == F && link == "log") ) {
+	modelo2 <- glm(y ~ X2 -1,family=Gamma(link=log),maxit=maxit)
+} else {
+	if ( (is.null(version$language) == T && link == "Inverse: 1/mu") | (is.null(version$language) == F && link == "inverse") ) {
+		modelo2 <- glm(y ~ X2 -1,family=Gamma,maxit=maxit)
+	} else {
+		if ( (is.null(version$language) == T && link == "Identity: mu") | (is.null(version$language) == F && link == "identity") ) {
+			modelo2 <- glm(y ~ X2 -1,family=Gamma(link=identity),maxit=maxit)
+		} else {
+			stop(paste("\nEsta funcao so aceita as ligacoes: canonica, log e identidade!!!\nLigacao ",link," desconhecida!!!\n"))
+		}
+	}
+}
+fi2<- 1/gamma.dispersion(modelo2)
+
+cat("H0: Without Eta^2: scaled deviance",round(summary(modelo)$deviance*fi,digits=6),"and deviance",round(summary(modelo)$deviance,digits=6),"on",summary(modelo)$df[2],"degrees of freedom\n")
+cat("H1: With Eta^2   : scaled deviance",round(summary(modelo2)$deviance*fi2,digits=6),"and deviance",round(summary(modelo2)$deviance,digits=6),"on",summary(modelo2)$df[2],"degrees of freedom\n\n")
+rv.gama(modelo$y,modelo,modelo2)
+}

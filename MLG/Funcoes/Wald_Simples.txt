@@ -1,0 +1,58 @@
+wald_simples<-function(modelo=fit.model,b0=NULL) {
+# NOTA: Use somente esta função para hipóteses simples
+
+# Descrição e detalhes:
+# Esta função calcula o valor da estatística Wald para um teste com hipóteses lineares do tipo H0: B=b0.
+#
+# Os dados devem estar disponíveis pelo comando attach( ).
+#
+# Argumentos obrigatórios:
+# modelo: ajuste do modelo sob H1 (irrestrito);
+# Argumentos opcionais:
+# b0: opcionalmente, se não informado, um vetor de zeros.
+#
+# A saída será o valor da estatística de Wald (qui-quadrado) juntamente com p graus de liberdade e o nível descritivo.
+#
+# Autor: Frederico Zanqueta Poleto <fred@poleto.com>, arquivo disponível em http://www.poleto.com
+#
+# Referência:
+# PAULA, G. A. (2003). Modelos de Regressão com apoio computacional. IME-USP, São Paulo. [Não publicado,
+#    disponível em http://www.ime.usp.br/~giapaula/Book.pdf]
+#
+# Exemplos:
+# wald(modelo,matrix(c(0,1,0,-1, 0,0,1,-1),nrow=2,ncol=4,byrow=T))
+# wald(modelo,cbind(matrix(0,nrow=4,ncol=8),diag(4)))
+#
+
+if( (class(modelo)[1]!="lm") & (class(modelo)[1] != "glm") & (class(modelo)[1] != "negbin") ) {
+	stop(paste("\nA classe do objeto deveria ser lm ou glm !!!\n"))
+}
+
+p=length(modelo$coef)
+
+
+if(is.null(b0)) {
+	b0<-numeric(p)
+}
+
+if(class(modelo)[1]=="lm") {
+	fi<-1/(summary(modelo)$sigma^2)
+} else {
+	if(modelo$family[[1]] == "Gamma") {
+		library("MASS")
+		fi<-as.numeric(gamma.shape(modelo)$alpha) #Função gamma.shape retorna phi do texto, gamma.shape$alpha=1/gamma.dispersion
+	} else {
+		fi<-as.numeric(1/summary(modelo)$dispersion)
+	}
+}
+
+
+bb<-modelo$coef-b0
+varb<-summary(modelo)$cov.unscaled
+
+x2<-as.numeric(fi*t(bb)%*%solve(varb)%*%bb)
+
+pvalue<-1-pchisq(x2,p)
+
+list(x2=x2,df=p,pvalue=pvalue)
+}

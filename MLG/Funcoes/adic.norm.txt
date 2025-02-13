@@ -1,0 +1,139 @@
+adic.norm <- function(modelo=fit.model,var=NA,iden=NA,nome=seq(along = model.matrix(modelo)[,1])) {
+
+#
+# Descrição e detalhes:
+# A saída terá gráficos da variável adicionada para um modelo normal linear.
+#
+# Os dados devem estar disponíveis pelo comando attach( ).
+#
+# Argumentos obrigatórios:
+# modelo: deve-se informar o objeto onde está o ajuste do modelo normal linear, caso não seja informado, a função
+# 	  procurará o ajuste no objeto fit.model;
+# 
+# Argumentos opcionais:
+# var: se não for informada, serão feitos gráficos da variável adicionada para cada variável do modelo. Se for
+#      informada, serão feitos gráficos da variável adicionada para cada uma dessas variáveis. Para cada uma das
+#      variáveis que já estavam no modelo (a comparação é feita utilizando o nome informado nesse objeto e o contido na
+#      na matriz modelo, portanto a comparação não é perfeita!), será feito o gráfico dos resíduos do modelo sem elas
+#      contra o resíduo da regressão delas pelas outras do modelo. Para cada uma das variáveis que não estavam
+#      no modelo, será feito o gráfico dos resíduos do modelo já ajustado contra o resíduo da regressão delas por todas
+#      as variáveis explicativas do modelo. É necessário que a matriz tenha o mesmo número de linhas do modelo. Sugere-se
+#      usar o comando cbind(). Uma sugestão é primeiro fazer um gráfico para as variáveis existentes no modelo e depois
+#      especificar outras variáveis que não estão no modelo. A função não irá funcionar adequadamente se var tiver fatores
+#      ou se var não for informado e o modelo ajustado tiver fatores. Interações também podem não funcionar direito.
+#      Nestes casos é melhor fazer os ajustes dos modelos sem as variáveis/interações de interesse e rodar essa função
+#      especificando o ajuste e as variáveis extras em var;
+# iden: caso deseje, informe o número de observações que irá querer destacar em cada gráfico. O vetor deve
+# 	conter números inteiros. A ordem que deve ser informada é a mesma das variáveis da opção var, caso seja
+#	utilizada, ou deve ter a mesma ordem da matriz modelo. Os componentes do vetor iguais a 0 indicam que não se
+#	quer que identifique pontos, se for um inteiro positivo irá automaticamente nos gráficos pertinentes permitir
+#	que identifiquemos o número de pontos solicitados e qualquer outro valor (negativo ou decimal) parará nos
+#	gráficos e irá solicitar que especifiquemos o número de pontos a ser destacado. O padrão é c(0,...,0) caso não
+#	se entre com nada e c(-1,...,-1) caso se entre com qualquer coisa que não satisfaça os requisitos citados
+#	de ser número inteiro, não negativo e de ter o mesmo comprimento da opção var ou da matriz modelo;
+# nome: esse argumento só é utilizado caso algum dos componentes do vetor da opção iden não seja 0. Caso não
+#	seja informado nada, os pontos identificados serão os números da ordem em que estão no banco de dados.
+#	Caso se queira, pode-se informar um vetor de nomes ou de identificações alternativas. Obrigatoriamente
+#	esse vetor deve ter o mesmo comprimento do banco de dados.
+#
+# Autor: Frederico Zanqueta Poleto <fred@poleto.com>, arquivo disponível em http://www.poleto.com
+#
+# Referências:
+# MCCULLAGH, P. e NELDER, J. A. (1989). Generalized Linear Models. 2ª ed. Chapman and Hall, London.
+# NETER, J., KUTNER, M. H., NACHTSHEIM, C. J. and WASSERMAN, W. (1996). Applied Linear Statistical Models. 4ª ed.
+#    Mc Graw Hill, Boston.
+# PAULA, G. A. (2003). Modelos de Regressão com apoio computacional. IME-USP, São Paulo. [Não publicado,
+#    disponível em http://www.ime.usp.br/~giapaula/Book.pdf]
+#
+# Exemplo:
+# adic.norm(ajuste,var=cbind(X1,X3,X8),iden=-1)
+#
+
+if( class(modelo)[1]=="lm" || (class(modelo)[1]=="glm" && (modelo$family[[1]]=="Gaussian" | modelo$family[[1]]=="gaussian")) ) {
+
+} else {
+	stop(paste("\nA classe do objeto deveria ser lm ou glm (com distribuicao gaussian) !!!"))
+}
+
+X<-model.matrix(modelo)
+px<-ncol(X)
+y<-predict(modelo)+resid(modelo)
+rx<-resid(modelo)
+
+if (is.na(var[1])) {
+	var<-X[,-1]
+}
+p<-ncol(var)
+
+if (is.na(iden[1])) {
+	iden<-rep(0,p)
+}
+if(p>length(iden)) {
+	iden<-rep(-1,p)
+}
+
+if (p>2) {
+	if (p>8) {	
+		par(mfrow=c(3,ceiling(p/3)))
+	} else {
+		par(mfrow=c(2,ceiling(p/2)))
+	}
+} else {
+	par(mfrow=c(1,ceiling(p)))
+}
+
+full<-""
+expli<-0
+for (i in 2:px) {
+	if(expli>0) {
+		expli<-expli+1
+		full<-paste(full,"+",dimnames(X)[[2]][i],sep="")
+	} else {
+		expli<-1
+		full<-paste(dimnames(X)[[2]][i],sep="")
+	}
+}
+
+for(i in 1:p) {
+	nomei<-dimnames(var)[[2]][i]
+	X1<-var[,i]
+	if(sum(dimnames(X)[[2]]==nomei)==0) {
+		r<-rx
+		X2<-X
+		expl<-full
+		sem<-""
+	} else {
+		expl<-""
+		expli<-0
+		for(j in 2:px) {
+			if(dimnames(X)[[2]][j]!=nomei) {
+				if(expli>0) {
+					expli<-expli+1
+					expl<-paste(expl,"+",dimnames(X)[[2]][j],sep="")
+				} else {
+					expli<-1
+					expl<-paste(dimnames(X)[[2]][j],sep="")
+				}
+			} else {
+				X2<-X[,-j]
+				sem<-paste(" -",dimnames(X)[[2]][j],sep="")
+			}
+		}
+		r<-resid(lm(y~X2-1))
+	}
+	print(paste(nomei,"~",expl))
+	v<-resid(lm(X1~X2-1))
+	plot(v,r,xlab=paste("resid( ",nomei," ~ .",sem," )",sep=""),ylab=paste("resid( ",dimnames(attr(modelo$terms,"factors"))[[1]][1]," ~ .",sem," )",sep=""), pch=16)
+	lines(lowess(v,r))
+	while ( (!is.numeric(iden[i])) || (round(iden[i],0) != iden[i]) || (iden[i] < 0) ) {
+		cat("Digite o num.de pontos a ser identificado (0=nenhum) e <enter> para continuar\n")
+		out <- readline()
+		iden[i]<-as.numeric(out)
+	}
+	if(iden[i]>0) {identify(v,r,n=iden[i],labels=nome)}
+}
+
+
+par(mfrow=c(1,1))
+cat("\n")
+}

@@ -1,0 +1,54 @@
+rv.nb <- function(fit0,fit1){
+
+#
+# Descrição e detalhes:
+# Esta função calcula o valor da estatística da razão de verossimilhanças para testar dois modelos encaixados com
+# distribuição binomial negativa.
+#
+# Os dados devem estar disponíveis pelo comando attach( ).
+#
+# Argumentos obrigatórios:
+# fit0: ajuste do modelo sob H0;
+# fit1: ajuste do modelo sob H1.
+#
+# A saída será o valor da estatística da razão de verossimilhanças juntamente com os graus de liberdade e o
+# nível descritivo.
+#
+# Autor: Frederico Zanqueta Poleto <fred@poleto.com>, arquivo disponível em http://www.poleto.com
+#
+# Referência:
+# PAULA, G. A. (2003). Modelos de Regressão com apoio computacional. IME-USP, São Paulo. [Não publicado,
+#    disponível em http://www.ime.usp.br/~giapaula/Book.pdf]
+#
+# Exemplo:
+# rv.nb(ajuste.sobH0,ajuste.sobH1)
+#
+
+if( (class(fit0)[1] != "negbin") | (class(fit1)[1] != "negbin") ) {
+	stop(paste("\nAs classes dos dois objetos deveriam ser negbin !!!\n"))
+}
+if(fit0$family[[2]] != fit1$family[[2]]) {
+	stop(paste("\nAs funcoes de ligacao dos objetos deveriam ser as mesmas !!!\n"))
+}
+
+y<-fit0$y
+
+if ( sum(y != fit1$y) != 0 ) {
+	stop(paste("\nOs dois modelos nao possuem a mesma variavel resposta!!!\n"))
+}
+
+m0 <- fitted(fit0)
+m1 <- fitted(fit1)
+
+f0 <- fit0$theta
+f1 <- fit1$theta
+
+n <- nrow(model.matrix(fit0))
+
+#rv <- 2*sum(log(gamma(f1+y)*gamma(f0)/(gamma(f0+y)*gamma(f1)))+y*log(m1*(f0+m0)/(m0*(f1+m1)))+f1*log(f1/(f1+m1))-f0*log(f0/(f0+m0)))
+rv <- fit1$twologlik-fit0$twologlik
+
+df <- summary(fit0)$df[2]-summary(fit1)$df[2]
+
+list(rv=rv,df=df,pvalue=1-pchisq(rv,df))
+}

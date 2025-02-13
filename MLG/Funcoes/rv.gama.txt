@@ -1,0 +1,43 @@
+#------------------------------------------------
+# Esta  função  calcula o valor da estatística  #
+# da razão de verossimilhança para testar dois  #
+# modelos encaixados gama.  Deve-se  deixar no  #
+# objeto y o vetor das respostas e nos objetos  #
+# fit1 e fit2, respectivamente, os ajustes dos  #
+# modelos  sob as hipóteses nula e alternativa. #
+# Deve-se  também  deixar  disponível a library #
+# mass através do comando                       #
+#              library(mass)                    #
+# Para que a função fique em definitivo na área #
+# de trabalho use inicialmente o comando source #
+#         source("rv.gama")                     #
+# onde rv.gama é  o nome do arquivo externo onde#
+# o programa foi colocado.Depois disso a função #
+# estará disponível no S-Plus.                  #
+# Para usá-la deve-se bater                     #
+#            rv.gama(y,fit1,fit2)               #
+# A saída será o valor da estatística da razão  #
+# de verossimilhança  juntamente  com  o nível  #
+# descritivo.                                   #
+#-----------------------------------------------# 
+rv.gama <- function(y,fit1,fit2){
+t1 <- log(y/fitted(fit1)) - y/fitted(fit1)
+t2 <- log(y/fitted(fit2)) - y/fitted(fit2)
+t1 <- sum(t1)
+t2 <- sum(t2)
+#
+f1 <- gamma.shape(fit1)$alpha
+f2 <- gamma.shape(fit2)$alpha
+#
+d1 <- f1*log(f1) - log(gamma(f1))
+d2 <- f2*log(f2) - log(gamma(f2))
+n <- nrow(model.matrix(fit1))
+#
+rv <- 2*(f2*t2 - f1*t1 + n*(d2 - d1))
+g1 <- fit2$df.residual
+g2 <- fit1$df.residual
+#
+pvalor <- 1 - pchisq(rv, g2-g1)
+list(Estatistica_RV=rv,gl=g2-g1,p_valor=pvalor)
+}
+#-----------------------------------------------#

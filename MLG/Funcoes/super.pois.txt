@@ -1,0 +1,40 @@
+super.pois <- function(modelo=fit.model) {
+
+#
+# Descrição e detalhes:
+# Esta função testa se um modelo com distribuição de Poisson tem superdispersão pelo teste desenvolvido por Lawless (1987).
+#
+# Os dados devem estar disponíveis pelo comando attach( ).
+#
+# Argumentos obrigatórios:
+# modelo: deve-se informar o objeto onde está o ajuste do modelo com distribuição de Poisson.
+#
+# A saída terá a estatística do teste (lawless) e o nível descritivo (pvalue).
+#
+# Autor: Frederico Zanqueta Poleto <fred@poleto.com>, arquivo disponível em http://www.poleto.com
+#
+# Referência:
+# LAWLESS, J. F. (1987). Negative binomial and mixed Poisson regression. The Canadian Journal of Statistics 15, 209-225.
+# PAULA, G. A. (2003). Modelos de Regressão com apoio computacional. IME-USP, São Paulo. [Não publicado,
+#    disponível em http://www.ime.usp.br/~giapaula/Book.pdf]
+#
+# Exemplo:
+# super.pois(ajuste)
+#
+
+if(class(modelo)[1] != "glm") {
+	stop(paste("\nA classe do objeto deveria ser glm e nao ",class(modelo),"!!!\n"))
+}
+if(modelo$family[[1]] != "Poisson" & modelo$family[[1]] != "poisson") {
+	stop(paste("\nA familia do objeto deveria ser Binomial e nao ",modelo$family[[1]],"!!!\n"))
+}
+
+y<-modelo$y
+m<-fitted(modelo)
+p <- length(modelo$coef)
+
+lawless<-sum((y-m)^2-mean(m))/sqrt(2*sum(m^2))
+pvalue <- 1-pnorm(lawless)
+
+list(lawless=lawless,pvalue=pvalue)
+}

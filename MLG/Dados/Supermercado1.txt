@@ -1,0 +1,8 @@
+Desconto Cupons_Enviados Cupons_Usados
+5 200 30
+10 200 45
+15 200 70
+20 200 100
+25 200 137
+30 200 166
+35 200 176

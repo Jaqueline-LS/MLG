@@ -1,0 +1,61 @@
+escore_simples<-function(modelo=fit.model,X) {
+
+#
+# Descrição e detalhes:
+# Esta função calcula o valor da estatística Escore para um teste com hipóteses lineares do tipo H0: B=0.
+# A expressão utilizada pode ser encontrada em Paula (2003, págs.31-32).
+#
+# Os dados devem estar disponíveis pelo comando attach( ).
+#
+# Argumentos obrigatórios:
+# modelo: ajuste do modelo sob H0;
+# A saída será o valor da estatística Escore (qui-quadrado) juntamente com os graus de liberdade e o nível descritivo.
+#
+# Referência:
+# PAULA, G. A. (2003). Modelos de Regressão com apoio computacional. IME-USP, São Paulo. [Não publicado,
+#    disponível em http://www.ime.usp.br/~giapaula/Book.pdf]
+
+
+if( (class(modelo)[1]!="lm") & (class(modelo)[1] != "glm") & (class(modelo)[1] != "negbin") ) {
+	stop(paste("\nA classe do objeto deveria ser lm ou glm !!!\n"))
+}
+
+
+if(class(modelo)[1]=="lm") {
+	W<-diag(n)
+	fi<-1/(summary(modelo)$sigma^2)
+} else {
+	W<-diag(modelo$weights)
+	if(modelo$family[[1]] == "Gamma") {
+		library("MASS")
+		fi<-as.numeric(gamma.shape(modelo)$alpha) #Função gamma.shape retorna phi do texto, gamma.shape$alpha=1/gamma.dispersion
+	} else {
+		fi<-as.numeric(1/summary(modelo)$dispersion)
+	}
+}
+
+mu_est=modelo$fitted.values
+n=length(mu_est)
+if(class(modelo)[1]=="lm") {
+	Vmu<-cbind(rep(1,n))}
+if(modelo$family[[1]]=="gaussian") {
+	Vmu<-cbind(rep(1,n))}
+if(modelo$family[[1]]=="Gamma") {
+	Vmu<-mu_est^2}
+if(modelo$family[[1]]=="inverse.gaussian") {
+	Vmu<-mu_est^3}
+if(modelo$family[[1]]=="poisson") {
+	Vmu<-mu_est}
+if(modelo$family[[1]]=="binomial") {
+	Vmu<-mu_est*(1-mu_est)}
+
+Ubeta=fi*t(X)%*%sqrt(W)%*%sqrt(solve(diag(Vmu)))%*%(modelo$y-mu_est)
+
+X2=1/fi*t(Ubeta)%*%solve(t(X)%*%W%*%X)%*%Ubeta
+X2<-as.numeric(X2)
+
+p=ncol(X)
+pvalue<-1-pchisq(X2,p)
+
+list(X2=X2,df=p,pvalue=pvalue)
+}

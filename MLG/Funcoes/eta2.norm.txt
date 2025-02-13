@@ -1,0 +1,49 @@
+eta2.norm <- function(modelo=fit.model) {
+
+#
+# Descrição e detalhes:
+# McCullagh e Nelder (1989), pág.401, citam que uma forma de checar formalmente a má especificação da função de
+# ligação ou falta de covariadas no modelo é adicionar o quadrado do preditor linear ajustado como uma covariada
+# extra e analisar a queda no desvio. Obviamente, para o modelo normal linear o objetivo é apenas avaliar a falta
+# de covariadas.
+#
+# Como utilizamos sempre a ligação identidade para a distribuição normal, o objetivo desse teste seria detectar
+# apenas se faltam covariadas no modelo ou se as covariadas deviam estar em outra escala. No entanto, o procedimento
+# parece não ser muito sensível para a distribuição normal.
+#
+# Essa função automaticamente pega um modelo normal linear ajustado e lista o seu desvio escalonado, o obtido
+# adicionando o preditor linear ao quadrado e faz um teste F (diferença de desvios) comparando os dois.
+# É necessário ter a função testef instalada.
+# 
+# Os dados devem estar disponíveis pelo comando attach( ).
+#
+# Argumentos obrigatórios:
+# modelo: deve-se informar o objeto onde está o ajuste do modelo com distribuição gama, caso não seja informado, a
+# 	  função procurará o ajuste no objeto fit.model.
+#
+# Autor: Frederico Zanqueta Poleto <fred@poleto.com>, arquivo disponível em http://www.poleto.com
+#
+# Referência:
+# MCCULLAGH, P. e NELDER, J. A. (1989). Generalized Linear Models. 2ª ed. Chapman and Hall, London.
+#
+# Exemplo:
+# eta2.norm(ajuste)
+#
+
+if( class(modelo)[1]=="lm" || (class(modelo)[1]=="glm" && (modelo$family[[1]]=="Gaussian" | modelo$family[[1]]=="gaussian")) ) {
+
+} else {
+	stop(paste("\nA classe do objeto deveria ser lm ou glm (com distribuicao gaussian) !!!"))
+}
+
+X <- model.matrix(modelo)
+y <- predict(modelo)+resid(modelo)
+
+pl2 <- predict(modelo)^2
+X2<-cbind(X,pl2)
+modelo2 <- lm(y ~ X2 -1)
+
+cat("H0: Without Eta^2: scaled deviance",round(deviance(modelo),digits=6),"on",summary(modelo)$df[2],"degrees of freedom\n")
+cat("H1: With Eta^2   : scaled deviance",round(deviance(modelo2),digits=6),"on",summary(modelo2)$df[2],"degrees of freedom\n\n")
+testef(modelo,modelo2)
+}

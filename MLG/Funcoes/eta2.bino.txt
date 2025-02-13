@@ -1,0 +1,73 @@
+eta2.bino <- function(modelo=fit.model,maxit=20) {
+
+#
+# Descrição e detalhes:
+# McCullagh e Nelder (1989), pág.401, citam que uma forma de checar formalmente a má especificação da função de
+# ligação ou falta de covariadas no modelo é adicionar o quadrado do preditor linear ajustado como uma covariada
+# extra e analisar a queda no desvio.
+#
+# Essa função automaticamente pega um modelo ajustado com distribuição binomial e lista o seu desvio escalonado, o
+# obtido adicionando o preditor linear ao quadrado e faz um teste de razão de verossimilhanças comparando os dois.
+# É necessário ter a função rv.glm instalada.
+# 
+# Os dados devem estar disponíveis pelo comando attach( ).
+#
+# Argumentos obrigatórios:
+# modelo: deve-se informar o objeto onde está o ajuste do modelo com distribuição binomial com ligação logito,
+# 	  probito, complementar log-log ou Aranda-Ordaz, caso não seja informado, a função procurará o ajuste no
+#	  objeto fit.model.
+#
+# Argumentos opcionais:
+# maxit: essa é utilizada no ajustes do novo modelo. O padrão é maxit=20.
+#
+# Autor: Frederico Zanqueta Poleto <fred@poleto.com>, arquivo disponível em http://www.poleto.com
+#
+# Referência:
+# MCCULLAGH, P. e NELDER, J. A. (1989). Generalized Linear Models. 2ª ed. Chapman and Hall, London.
+#
+# Exemplo:
+# eta2.bino(ajuste)
+#
+
+if(class(modelo)[1] != "glm") {
+	stop(paste("\nA classe do objeto deveria ser glm e nao ",class(modelo),"!!!\n"))
+}
+if(modelo$family[[1]] != "Binomial" & modelo$family[[1]] != "binomial" & modelo$family[[1]] != "Aranda") {
+	stop(paste("\nA familia do objeto deveria ser Binomial e nao ",modelo$family[[1]],"!!!\n"))
+}
+
+X <- model.matrix(modelo)
+p<-ncol(X)
+n<-nrow(X)
+if(is.null(modelo$prior.weights)) {
+	ntot<-rep(1,n)
+} else {
+	ntot<-modelo$prior.weights
+}
+y <- round(modelo$y*ntot,0)
+
+pl2 <- predict(modelo)^2
+link<-modelo$family["link"]
+X2<-cbind(X,pl2)
+if ( (is.null(version$language) == T && link == "Logit: log(mu/(1 - mu))") | (is.null(version$language) == F && link == "logit") ) {
+	modelo2 <- glm(cbind(y,ntot-y) ~ X2-1,family=binomial,maxit=maxit)
+} else {
+	if ( (is.null(version$language) == T && link == "Probit: qnorm(mu)") | (is.null(version$language) == F && link == "probit") ) {
+		modelo2 <- glm(cbind(y,ntot-y) ~ X2-1,family=binomial(link=probit),maxit=maxit)
+	} else {
+		if ( (is.null(version$language) == T && link == "Complementary Log: log( - log(1 - mu))") | (is.null(version$language) == F && link == "cloglog") ) {
+			modelo2 <- glm(cbind(y,ntot-y) ~ X2-1,family=binomial(link=cloglog),maxit=maxit)
+		} else {
+			if ( modelo$family[[1]] == "Aranda" ) {
+				modelo2 <- do.call("glm",list(cbind(y,ntot-y) ~ X2-1,family=aranda(as.numeric(link)),maxit=maxit))
+			} else {
+				stop(paste("\nEsta funcao so aceita as ligacoes: logito, probito, complementar log-log e Aranda-Ordaz !!!\nLigacao ",link," desconhecida!!!\n"))
+			}
+		}
+	}
+}
+
+cat("H0: Without Eta^2: deviance",round(summary(modelo)$deviance,digits=6),"on",summary(modelo)$df[2],"degrees of freedom\n")
+cat("H1: With Eta^2   : deviance",round(summary(modelo2)$deviance,digits=6),"on",summary(modelo2)$df[2],"degrees of freedom\n\n")
+rv.glm(modelo,modelo2)
+}

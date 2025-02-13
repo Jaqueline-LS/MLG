@@ -1,0 +1,146 @@
+# Simula MRLM Normal
+bbeta=matrix(c(-5,1,2,0.5))
+X1=rnorm(100)
+X2=rnorm(100,5,1)
+X3=rnorm(100,10,1)
+X=matrix(c(rep(1,100),X1,X2,X3),nrow=100,ncol=4)
+erro=rnorm(100)
+y=X%*%bbeta+erro
+# Ajuste
+ajuste=lm(y~X1+X2+X3)
+summary(ajuste)
+
+beta_est=ajuste$coefficients
+y_est=X%*%beta_est
+res_ord=y-y_est
+sum(res_ord-ajuste$residuals)# 'residuals' é resíduo odinário
+n=length(y)
+p=length(beta_est)
+Sigma2=sum(ajuste$residual^2/(n-p))
+# output de summary(.): Residual standard error = sqrt(Sigma2)
+
+# Análise de Diagnóstico
+?lm.influence
+?influence.measures
+diag1=lm.influence(ajuste,do.coef=TRUE)
+names(diag1)
+h_ii=diag1$hat
+h_corte=2*length(beta_est)/length(y) # 2*p/n
+
+beta_i=diag1$coefficients # matriz de beta_(i), i=1,...,n
+sigma_i=diag1$sigma # residual standard deviation obtained when the i-th case is dropped from the regression
+
+diag11=lm.influence(ajuste,do.coef=FALSE) # não calcula beta_(i), i=1...,n
+names(diag11)
+
+diag2=influence.measures(ajuste)
+names(diag2)
+
+res_pad=res_ord/sqrt(Sigma2*(1-h_ii))
+res_stud=res_ord/(sigma_i*sqrt(1-h_ii))
+
+########## Gráficos Qualidade do Ajuste
+#1. Observações aberrantes (pontos mal ajustados)
+plot(res_pad)
+abline(2,0)
+abline(-2,0)
+
+# Apenas para ver relação
+plot(res_stud)
+plot(res_pad,res_stud)
+
+#2. Pressupostos
+plot(ajuste)
+# 2.1 res_pad vs fitted values -> testa heterocedasticidade (nenhum padrão no gráfico) ou não-linearidade dos efeitos das var. explicativas
+#2.2 PP-plot ou Qq-plot -. testa normalidade
+
+########## Gráficos Detectar Observações Influentes
+plot(h_ii)
+abline(h_corte,0)
+
+Di=diag2$infmat[,p+3]
+plot(Di)
+Di_corte = pf(0.5,p,n-p)
+abline(Di_corte,0)
+
+Deffits=diag2$infmat[,p+1]
+plot(Deffits)
+abline(2*sqrt(p/(n-p)),0)
+identify(Deffits)
+
+plot(Di,Deffits)
+plot(Di,Deffits^2)
+Deffits2=Deffits^2
+abline(lm(Deffits2~Di))
+identify(Di,Deffits^2)
+
+Def_sigma=diag2$infmat[,p+2]
+plot(Def_sigma)
+abline(1,0)
+which(diag2$is.inf[,6]==TRUE)
+identify(Def_sigma) # mais longe de 1
+
+# Estatística modificada de Cook
+Ci=sqrt((n-p)/p*h_ii/(1-h_ii))*abs(res_stud)
+plot(Ci)
+identify(Ci)
+
+# LDi
+Sigma2_EMV=n/(n-p)*Sigma2
+Sigma2_EMV_i=(n-p-1)/(n-1)*(sigma_i^2)
+# S2i=Sigma2*(n-p-res_pad^2)/(n-1) : igual
+LDi=n*log(Sigma2_EMV_i/Sigma2_EMV)-1+(res_ord/(1-h_ii))^2/Sigma2_EMV_i
+plot(LDi)
+
+# LDi(beta|Sigma2)
+LDi_beta=n*log(1+p/(n-p)*Di)
+plot(LDi_beta)
+
+# LDi(Sigma2|beta)
+bi=res_ord^2/(sum(res_pad^2)*(1-h_ii))
+LDi_Sigma=n*log(n/(n-1)*(1-bi)+(n*bi-1)/(1-bi))
+plot(LDi_Sigma)
+
+# conferindo equação: LDi(beta,sigma2)-LDi(Sigma2|beta)=(n-1)/(n-p-1)Deffits^2
+LDi_beta_S2=n*log(n/(n-1)*(1-bi))-1+(n-1)/(1-h_ii)*bi/(1-bi)
+sum(LDi_beta_S2-LDi_Sigma-(n-1)/(n-p-1)*Deffits^2) # NÃO ESTÁ BATENDO!!!!!!!!!!!!
+
+
+# primeiras colunas de "influence.measures" são os DFBeta's -> influência em cada coeficiente
+
+# The functions dfbetas, dffits, covratio and cooks.distance provide direct access to the corresponding 
+# diagnostic quantities. Functions rstandard and rstudent give the standardized and Studentized residuals 
+# respectively. Use in object model ajusted!!!
+
+# Exemplo: se vc quer somente Di, faça:
+sum(cooks.distance(ajuste)-diag2$infmat[,p+3])
+
+# a coluna 'cov' de infmat se refere à medida cov.ratio <- (si/s)^(2 * p)/(1 - h)
+                                                           si=sigma_(i) ; s=sqrt(Sigma2)
+
+influence.measures
+
+
+#################################################################################################################
+
+# Ver se pontos fora da massa dos dados podem mudar inclicação da reta
+
+rm(list=ls(all=TRUE))
+x=runif(100,0,10)
+erro=rnorm(100)
+y=5+4*x+erro
+plot(x,y)
+ajuste=lm(y~x)
+summary(ajuste)
+abline(ajuste)
+
+x1=x
+y1=y
+x1[101]=2
+x1[102]=2.5
+y1[101]=40
+y1[102]=45
+ajuste1=lm(y1~x1)
+summary(ajuste1)
+abline(ajuste1,col="red")
+

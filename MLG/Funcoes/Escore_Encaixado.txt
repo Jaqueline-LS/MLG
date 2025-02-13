@@ -1,0 +1,55 @@
+escore_encaixado<-function(modelo,ind,X) {
+
+
+
+# Descrição e detalhes:
+# Esta função calcula o valor da estatística Escore para um teste de hipóteses (modelos Encaixados), H0: Beta1=b10.
+# A expressão utilizada pode ser encontrada em Paula (2003, págs.31-32).
+#
+# Os dados devem estar disponíveis pelo comando attach( ).
+#
+# Argumentos obrigatórios:
+# modelo: ajuste do modelo sob H0;
+# A saída será o valor da estatística Escore (qui-quadrado) juntamente com os graus de liberdade e o nível descritivo.
+#
+# Referência:
+# PAULA, G. A. (2003). Modelos de Regressão com apoio computacional. IME-USP, São Paulo. [Não publicado,
+#    disponível em http://www.ime.usp.br/~giapaula/Book.pdf]
+
+
+if( (class(modelo)[1]!="lm") & (class(modelo)[1] != "glm") & (class(modelo)[1] != "negbin") ) {
+	stop(paste("\nA classe do objeto deveria ser lm ou glm !!!\n"))
+}
+
+
+if(class(modelo)[1]=="lm") {
+	W<-diag(n)
+	fi<-1/(summary(modelo)$sigma^2)
+} else {
+	W<-diag(modelo$weights)
+	if(modelo$family[[1]] == "Gamma") {
+		library("MASS")
+		fi<-as.numeric(gamma.shape(modelo)$alpha) #Função gamma.shape retorna phi do texto, gamma.shape$alpha=1/gamma.dispersion
+	} else {
+		fi<-as.numeric(1/summary(modelo)$dispersion)
+	}
+}
+
+q=sum(ind)
+p=ncol(X)
+n=nrow(X)
+X=as.matrix(X)
+X1=matrix(X[,ind==1],nrow=n,ncol=q)
+X2=matrix(X[,ind==0],nrow=n,ncol=p-q)
+rp = resid(modelo, type="pearson")
+w = modelo$weights
+W = diag(w)
+C = solve(t(X2)%*%W%*%X2)%*%t(X2)%*%W%*%X1
+R = X1-X2%*%C
+aux = solve(t(R)%*%W%*%R)
+SR = t(rp)%*%sqrt(W)%*%X1%*%aux%*%t(X1)%*%sqrt(W)%*%rp
+
+pvalue<-1-pchisq(SR,q)
+
+list(Escore=SR,df=q,pvalue=pvalue)
+}

@@ -1,0 +1,178 @@
+adic.pois <- function(modelo=fit.model,var=NA,iden=NA,nome=seq(along = model.matrix(modelo)[,1]),offvar=NULL,maxit=20) {
+
+#
+# Descrição e detalhes:
+# A saída terá gráficos da variável adicionada de um modelo ajuste com distribuição de Poisson.
+#
+# Os dados devem estar disponíveis pelo comando attach( ).
+#
+# Argumentos obrigatórios:
+# modelo: deve-se informar o objeto onde está o ajuste do modelo com distribuição de Poisson, caso não seja informado,
+# 	  a função procurará o ajuste no objeto fit.model;
+# 
+# Argumentos opcionais:
+# var: se não for informada, serão feitos gráficos da variável adicionada para cada variável do modelo. Se for
+#      informada, serão feitos gráficos da variável adicionada para cada uma dessas variáveis. Para cada uma das
+#      variáveis que já estavam no modelo (a comparação é feita utilizando o nome informado nesse objeto e o contido na
+#      matriz modelo, portanto a comparação não é perfeita!), será feito o gráfico dos resíduos do modelo sem elas
+#      contra o resíduo da regressão delas pelas outras do modelo. Para cada uma das variáveis que não estavam
+#      no modelo, será feito o gráfico dos resíduos do modelo já ajustado contra o resíduo da regressão delas por todas
+#      as variáveis explicativas do modelo. É necessário que a matriz tenha o mesmo número de linhas do modelo. Sugere-se
+#      usar o comando cbind(). Uma sugestão é primeiro fazer um gráfico para as variáveis existentes no modelo e depois
+#      especificar outras variáveis que não estão no modelo. A função não irá funcionar adequadamente se var tiver fatores
+#      ou se var não for informado e o modelo ajustado tiver fatores. Interações também podem não funcionar direito.
+#      Nestes casos é melhor fazer os ajustes dos modelos sem as variáveis/interações de interesse e rodar essa função
+#      especificando o ajuste e as variáveis extras em var;
+# iden: caso deseje, informe o número de observações que irá querer destacar em cada gráfico. O vetor deve
+# 	conter números inteiros. A ordem que deve ser informada é a mesma das variáveis da opção var, caso seja
+#	utilizada, ou deve ter a mesma ordem da matriz modelo. Os componentes do vetor iguais a 0 indicam que não se
+#	quer que identifique pontos, se for um inteiro positivo irá automaticamente nos gráficos pertinentes permitir
+#	que identifiquemos o número de pontos solicitados e qualquer outro valor (negativo ou decimal) parará nos
+#	gráficos e irá solicitar que especifiquemos o número de pontos a ser destacado. O padrão é c(0,...,0) caso não
+#	se entre com nada e c(-1,...,-1) caso se entre com qualquer coisa que não satisfaça os requisitos citados
+#	de ser número inteiro, não negativo e de ter o mesmo comprimento da opção var ou da matriz modelo;
+# nome: esse argumento só é utilizado caso algum dos componentes do vetor da opção iden não seja 0. Caso não
+#	seja informado nada, os pontos identificados serão os números da ordem em que estão no banco de dados.
+#	Caso se queira, pode-se informar um vetor de nomes ou de identificações alternativas. Obrigatoriamente
+#	esse vetor deve ter o mesmo comprimento do banco de dados;
+# offvar: o S-Plus não armazena no objeto do ajuste o offset, portanto se estiver utilizando offset precisa informá-lo
+#	  aqui. Quando estiver no R, a função ignora essa opção e pega o offset diretamente do ajuste;
+# maxit: essa opção é utilizada nos ajustes feitos sem as covariáveis que já estavam no modelo. O padrão é maxit=20.
+#
+# Autor: Frederico Zanqueta Poleto <fred@poleto.com>, arquivo disponível em http://www.poleto.com
+#
+# Referências:
+# MCCULLAGH, P. e NELDER, J. A. (1989). Generalized Linear Models. 2ª ed. Chapman and Hall, London.
+# PAULA, G. A. (2003). Modelos de Regressão com apoio computacional. IME-USP, São Paulo. [Não publicado,
+#    disponível em http://www.ime.usp.br/~giapaula/Book.pdf]
+#
+# Exemplo:
+# adic.pois(ajuste,var=cbind(X1,X3,X8),iden=-1)
+#
+
+if(class(modelo)[1] != "glm") {
+	stop(paste("\nA classe do objeto deveria ser glm e nao ",class(modelo),"!!!\n"))
+}
+if(modelo$family[[1]] != "Poisson" & modelo$family[[1]] != "poisson") {
+	stop(paste("\nA familia do objeto deveria ser Poisson e nao ",modelo$family[[1]],"!!!\n"))
+}
+
+X<-model.matrix(modelo)
+px<-ncol(X)
+y<-modelo$y
+rx<-resid(modelo,type="pearson")
+wx<-modelo$weights
+Wx<-diag(wx)
+Fisx<- t(X)%*%Wx%*%X
+Vx<-solve(Fisx)
+Hx<-sqrt(Wx)%*%X%*%Vx%*%t(X)%*%sqrt(Wx)
+link<-modelo$family["link"]
+
+if (is.na(var[1])) {
+	var<-X[,-1]
+}
+n<-nrow(X)
+p<-ncol(var)
+
+if (is.na(iden[1])) {
+	iden<-rep(0,p)
+}
+if(p>length(iden)) {
+	iden<-rep(-1,p)
+}
+
+if (p>2) {
+	if (p>8) {	
+		par(mfrow=c(3,ceiling(p/3)))
+	} else {
+		par(mfrow=c(2,ceiling(p/2)))
+	}
+} else {
+	par(mfrow=c(1,ceiling(p)))
+}
+
+if(is.null(version$language) == F) {
+	offvar<-modelo$offset
+}
+if(is.null(offvar)) {
+	offvar<-rep(0,n)
+} else {
+	if (length(offvar)!=n) {
+		stop(paste("\nO vetor do offset deve conter o mesmo comprimento das variaveis do modelo !!!\n"))
+	}
+}
+
+full<-""
+expli<-0
+for (i in 2:px) {
+	if(expli>0) {
+		expli<-expli+1
+		full<-paste(full,"+",dimnames(X)[[2]][i],sep="")
+	} else {
+		expli<-1
+		full<-paste(dimnames(X)[[2]][i],sep="")
+	}
+}
+
+for(i in 1:p) {
+	nomei<-dimnames(var)[[2]][i]
+	X1<-var[,i]
+	if(sum(dimnames(X)[[2]]==nomei)==0) {
+		r<-rx
+		H<-Hx
+		W<-Wx
+		expl<-full
+		sem<-""
+	} else {
+		expl<-""
+		expli<-0
+		for(j in 2:px) {
+			if(dimnames(X)[[2]][j]!=nomei) {
+				if(expli>0) {
+					expli<-expli+1
+					expl<-paste(expl,"+",dimnames(X)[[2]][j],sep="")
+				} else {
+					expli<-1
+					expl<-paste(dimnames(X)[[2]][j],sep="")
+				}
+			} else {
+				X2<-X[,-j]
+				sem<-paste(" -",dimnames(X)[[2]][j],sep="")
+			}
+		}
+		if ( (is.null(version$language) == T && link == "Log: log(mu)") | (is.null(version$language) == F && link == "log") ) {
+			fit <- glm(y ~ X2-1+offset(offvar),family=poisson,maxit=maxit)
+		} else {
+			if ( (is.null(version$language) == T && link == "Square Root: sqrt(mu)") | (is.null(version$language) == F && link == "sqrt") ) {
+				fit <- glm(y ~ X2-1+offset(offvar),family=poisson(link=sqrt),maxit=maxit)
+			} else {
+				if ( (is.null(version$language) == T && link == "Identity: mu") | (is.null(version$language) == F && link == "identity") ) {
+					fit <- glm(y ~ X2-1+offset(offvar),family=poisson(link=identity),maxit=maxit)
+				} else {
+					stop(paste("\nEsta funcao so aceita as ligacoes: canonica (log), raiz quadrada e identidade!!!\nLigacao ",link," desconhecida!!!\n"))
+				}
+			}
+		}
+		r<-resid(fit,type="pearson")
+		w <- fit$weights
+		W <- diag(w)
+		Fis <- t(X2)%*%W%*%X2
+		V <- solve(Fis)
+		H <- sqrt(W)%*%X2%*%V%*%t(X2)%*%sqrt(W)
+	}
+	print(paste(nomei,"~",expl))
+	v<-sqrt(W)%*%X1-H%*%sqrt(W)%*%X1
+	plot(v,r,xlab=paste("resid( ",nomei," ~ .",sem," )",sep=""),ylab=paste("resid( ",dimnames(attr(modelo$terms,"factors"))[[1]][1]," ~ .",sem," )",sep=""), pch=16)
+	lines(lowess(v,r))
+	while ( (!is.numeric(iden[i])) || (round(iden[i],0) != iden[i]) || (iden[i] < 0) ) {
+		cat("Digite o num.de pontos a ser identificado (0=nenhum) e <enter> para continuar\n")
+		out <- readline()
+		iden[i]<-as.numeric(out)
+	}
+	if(iden[i]>0) {identify(v,r,n=iden[i],labels=nome)}
+}
+
+
+par(mfrow=c(1,1))
+cat("\n")
+}
