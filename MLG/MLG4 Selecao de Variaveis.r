@@ -105,7 +105,12 @@ fit <- glm(cbind(num_grahani,n_controls) ~ per + comp + larg + local, family=bin
 summary(fit)
 fit.model=fit
 source("MLG/Funcoes/envel_bino.txt")
+source("MLG/envelope.r")
 
+fit <- glm(cbind(num_grahani,n_controls) ~ per + comp + larg + local, family=binomial) # the binomial family the links logit(default), probit, cauchit(corresponding Cauchy CDFs), log and cloglog(complementary log-log)
+summary(fit)
+fit.model=fit
+envelope("bino",fit.model)
 fit1 <- glm(cbind(num_grahani,n_controls) ~ per + comp + larg + local + larg*comp, family=binomial)
 summary(fit1) # A interacao n foi significativa
 fit.model=fit1
