@@ -10,6 +10,7 @@ ano <- factor(ano)
 ano <- C(ano,treatment)
 trim <- factor(trimestre)
 trim <- C(trim,treatment)
+source("StepBackwardF.r")
 
 #### 1. An?lise de Vari?ncia
 
@@ -26,6 +27,10 @@ summary(fit2)
 # Sob H0
 fit0=glm(cpue ~ 1, family=Gamma(link=log))
 summary(fit0)
+
+fit=glm(cpue ~ frota + ano + trim + latitude + longitude, family=Gamma(link=log))
+fit6<-StepJAQ(fit)
+
 
 # Testes de Hip?teses
 source("MLG/Funcoes/rv.gama.txt",encoding="latin1")

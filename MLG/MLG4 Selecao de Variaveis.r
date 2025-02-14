@@ -1,9 +1,10 @@
 
 # outro metodo, ver como fizemos na aula MLG3 OU 2 de tirar uma a uma com os testes
+source("StepBackwardF.r")
 
 ################ Sele??o de vari?veis
 rm(list = ls())
-pesca <- read.table(file="pesca.dat",header=F,col.names=c("frota","ano","trimestre","latitude","longitude","dias","captura","cpue"))
+pesca <- read.table(file="MLG/Dados/pesca.dat",header=F,col.names=c("frota","ano","trimestre","latitude","longitude","dias","captura","cpue"))
 attach(pesca)
 latitude=as.numeric(latitude)
 longitude=as.numeric(longitude)
@@ -23,6 +24,7 @@ summary(fitf)
 fitf=stepAIC(fit1,k=log(length(cpue))) # BIC
 summary(fitf)
 
+fitf=stepJAQ(fit1, alpha=0.05)
 
 # Um tira muito o outro tira nada, 
 
