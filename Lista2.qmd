@@ -58,22 +58,26 @@ A temperatura apresenta uma mediana levemente menor, ou seja, talvez os vidros s
 ## Seleção do modelo
 
 # Normal
-```{r}
-ResultadosNormal<-function(dados, modelo,ligacao,tipo, alfa=0.05)
+```{r, fig}
+ResultadosNormal<-function(dados, modelo, ligacao, tipo, alfa=0.05)
 {
   familia<-paste0("Normal-Link(",ligacao,")")
   n<-nrow(dados)
-  fit1<-glm(modelo, family=gaussian(link=ligacao))
-  print(fit1$family$link)
-  fit.model<-stepAIC(fit1,k=log(n))
-  fit.j<-stepJAQ(fit1)
-  summary(fit.j)
-
+  fit1<- switch(ligacao,
+                  identity = glm(modelo, family=gaussian),
+                  log = glm(modelo, family=gaussian(link=log)),
+                  inverse = glm(modelo, family=gaussian(link=inverse)),
+                  stop("Tipo não reconhecido"))
+  
+  fit.model<-stepAIC(fit1,k=log(n), trace = 0)
+  
+  fit.j<-stepJAQ(fit1, trace = 0)
+  
   if(deparse(formula(fit.model))==deparse(formula(fit.j)))
   {
    cat("BIC e Seleção via Teste F chegaram no mesmo modelo final!")
   }
-  teste<-try(envelope(fit.model ,alfa=0.05, tipo=tipo), silent = TRUE)
+  teste<-try(envelope(fit.j,tipo=tipo, ligacao=ligacao, alfa=alfa), silent = TRUE)
   aux<-sum(class(teste) != "try-error")
   if(aux==0)
   {
@@ -88,10 +92,12 @@ ResultadosNormal<-function(dados, modelo,ligacao,tipo, alfa=0.05)
 
 modelo<-resistencia ~ voltagem + temperatura
 
-Resultados<-ResultadosNormal(dados = vidros, modelo, ligacao = "log", tipo="envel_norm_log")
 
-Resultados<-normal(dados = vidros, modelo, ligacao = "inverse",
+Resultados1<-ResultadosNormal(dados = vidros, modelo, ligacao = "log", tipo="envel_norm_log")
+
+Resultados2<-ResultadosNormal(dados = vidros, modelo, ligacao = "inverse",
                    tipo="envel_norm_inverse")
+rbind(Resultados1, Resultados2)
 
 ```
 

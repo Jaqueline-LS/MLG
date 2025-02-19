@@ -1,4 +1,4 @@
-envelope<-function(fit.model, alfa=0.05, tipo)
+envelope<-function(fit.model, tipo, ligacao, alfa=0.05)
 {
   
   carregar_envel <- function(tipo) {
