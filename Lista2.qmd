@@ -1,0 +1,106 @@
+---
+title: "MODELOS LINEARES GENERALIZADOS (EST082)"
+subtitle: "LISTA 2 - Dados contínuos e positivos"
+lang: pt
+author: "Jaqueline Lamas da Silva"
+knitr:
+    opts_chunk: 
+      fig.align: 'center'
+format: 
+  html:
+    self-contained-math: true
+    embed-resources: true
+    code-fold: true
+toc: true
+editor: source
+---
+
+
+```{r, echo=FALSE, warning=FALSE}
+rm(list = ls(all = TRUE))
+suppressMessages(library("dplyr"))
+suppressMessages(library("MASS"))
+suppressMessages(library("readr"))
+source("MLG/Funcoes/StepBackwardF.R")
+source('MLG/Funcoes/envelope.r')
+
+cores<-c("#BAF3DE","#C9E69E","#FFC29A","#FF9B95")
+
+
+```
+
+# Exercício 7
+
+```{r}
+suppressMessages(vidros <- read_table("dados/lista2/vidros.txt", 
+    col_names = FALSE, col_types = cols(X2 = col_factor(levels = c("1","2", "3", "4")), X3 = col_factor(levels = c("1", "2")))))
+colnames(vidros)<-c("resistencia","voltagem","temperatura")
+
+vidros<-vidros |>
+  mutate(voltagem=factor(voltagem, levels = c(1:4),labels = paste0(150+c(1:4)*50,"kV")), temperatura = factor(temperatura, 1:2, labels=c("170°C","180°C")))
+```
+
+
+## Análise Exploratória
+
+```{r}
+suppressMessages(attach(vidros))
+boxplot(resistencia~voltagem, col=cores)
+```
+Os vidros parecem resistir por mais tempo a voltagens menores.
+
+```{r}
+boxplot(resistencia~temperatura, col=cores)
+```
+A temperatura apresenta uma mediana levemente menor, ou seja, talvez os vidros sejam menos resistentes a temperaturas maiores.
+
+
+## Seleção do modelo
+
+# Normal
+```{r}
+ResultadosNormal<-function(dados, modelo,ligacao,tipo, alfa=0.05)
+{
+  familia<-paste0("Normal-Link(",ligacao,")")
+  n<-nrow(dados)
+  fit1<-glm(modelo, family=gaussian(link=ligacao))
+  print(fit1$family$link)
+  fit.model<-stepAIC(fit1,k=log(n))
+  fit.j<-stepJAQ(fit1)
+  summary(fit.j)
+
+  if(deparse(formula(fit.model))==deparse(formula(fit.j)))
+  {
+   cat("BIC e Seleção via Teste F chegaram no mesmo modelo final!")
+  }
+  teste<-try(envelope(fit.model ,alfa=0.05, tipo=tipo), silent = TRUE)
+  aux<-sum(class(teste) != "try-error")
+  if(aux==0)
+  {
+    qualidade<-"Não Rodou"
+  }else{
+    qualidade<-teste
+  }
+  return(data.frame(Familia=familia,
+                    QQplot=qualidade,
+                    BIC=as.numeric(round(AIC(fit.j,k=log(n)),6))))
+}
+
+modelo<-resistencia ~ voltagem + temperatura
+
+Resultados<-ResultadosNormal(dados = vidros, modelo, ligacao = "log", tipo="envel_norm_log")
+
+Resultados<-normal(dados = vidros, modelo, ligacao = "inverse",
+                   tipo="envel_norm_inverse")
+
+```
+
+
+
+
+
+
+
+
+
+

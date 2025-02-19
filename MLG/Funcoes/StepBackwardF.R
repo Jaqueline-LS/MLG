@@ -33,8 +33,8 @@ testef<-function(fit0,fit1) {
     if(fit0$family[[1]] != fit1$family[[1]]) {
       stop(paste("\nAs familias dos objetos deveriam ser as mesmas !!!\n"))
     }
-    if(fit0$family[[2]] != fit1$family[[2]]) {
-      stop(paste("\nAs fun??es de liga??o dos objetos deveriam ser as mesmas !!!\n"))
+    if(fit0$family$link != fit1$family$link) {
+      stop(paste("\nAs funçõees de ligação dos objetos deveriam ser as mesmas !!!\n"))
     }
   }
   

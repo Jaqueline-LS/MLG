@@ -1,5 +1,4 @@
  ## Dados com Resposta Positiva
-
 # Exemplo Modelo Gamma: Dados da frota, peixe-batata
 pesca <- read.table(file="MLG/Dados/pesca.dat",header=F,col.names=c("frota","ano","trimestre","latitude","longitude","dias","captura","cpue"))
 attach(pesca)
@@ -14,6 +13,7 @@ trim <- factor(trimestre)
 trim <- C(trim,treatment)
 source("MLG/Funcoes/rv.gama.txt")
 source("MLG/Funcoes/testef.txt")
+source("MLG/envelope.r")
 n=length(cpue)
 
 # Ir anotando os BICs finais, significance e envelopes
@@ -44,7 +44,8 @@ gamma.shape(fit0)
 # Envelope
 fit.model=fit0
 source("MLG/Funcoes/envel_gama_log.txt")
-
+fit.model=fit0
+envelope(fit.model,"gama_log")
 
 # Link inverse
 fit1=glm(cpue ~ frota + ano + trim + latitude + longitude, family=Gamma(link=inverse))
