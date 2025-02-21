@@ -35,6 +35,7 @@ envelope<-function(fit.model, tipo, ligacao, alfa=0.05)
   
   fit.model<-fit.model
   carregar_envel(tipo)
+
   ind <- numeric(n)
   ind <- sort(tsi)<sort(e1) | sort(tsi)>sort(e2)
   prop.fora<-sum(ind)/n
@@ -48,11 +49,11 @@ envelope<-function(fit.model, tipo, ligacao, alfa=0.05)
   } else if((prop.fora>=alfa/2 & prop.fora<=alfa))
   {
     qualidade<-"Razoável"
-    
+
   }else if((prop.fora>alfa))
   {
     qualidade<-"Ruim"
   }
-  return(qualidade)
-  
+  return(list(qualidade, plot_capturado))
+
 }

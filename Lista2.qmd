@@ -58,47 +58,86 @@ A temperatura apresenta uma mediana levemente menor, ou seja, talvez os vidros s
 ## Seleção do modelo
 
 # Normal
-```{r, fig}
-ResultadosNormal<-function(dados, modelo, ligacao, tipo, alfa=0.05)
+```{r}
+
+envel_norm<-function(fit.model,alfa)
 {
-  familia<-paste0("Normal-Link(",ligacao,")")
-  n<-nrow(dados)
-  fit1<- switch(ligacao,
-                  identity = glm(modelo, family=gaussian),
-                  log = glm(modelo, family=gaussian(link=log)),
-                  inverse = glm(modelo, family=gaussian(link=inverse)),
-                  stop("Tipo não reconhecido"))
+  par(mfrow=c(1,1))
+  X <- model.matrix(fit.model)
+  n <- nrow(X)
+  p <- ncol(X)
   
-  fit.model<-stepAIC(fit1,k=log(n), trace = 0)
+  H <- X%*%solve(t(X)%*%X)%*%t(X)
+  h <- diag(H)
+  si <- lm.influence(fit.model)$sigma
+  r <- resid(fit.model)
+  tsi <- r/(si*sqrt(1-h))
+  #
+  ident <- diag(n)
+  epsilon <- matrix(0,n,100)
+  e <- matrix(0,n,100)
+  e1 <- numeric(n)
+  e2 <- numeric(n)
+  #
+  for(i in 1:100){
+    epsilon[,i] <- rnorm(n,0,1)
+    e[,i] <- (ident - H)%*%epsilon[,i]
+    u <- diag(ident - H)
+    e[,i] <- e[,i]/sqrt(u)
+    e[,i] <- sort(e[,i]) }
+  #
+  for(i in 1:n){
+    eo <- sort(e[i,])
+    e1[i] <- (eo[2]+eo[3])/2
+    e2[i] <- (eo[97]+eo[98])/2 }
+  #
+  med <- apply(e,1,mean)
+  faixa <- range(tsi,e1,e2)
+  #
+  par(pty="s")
+  pp=qqnorm(tsi,xlab="Percentis da N(0,1)",
+            ylab="Residuo Studentizado", ylim=faixa, pch=16)
+  par(new=T)
+  qqnorm(e1,axes=F,xlab="",ylab="",type="l",ylim=faixa,lty=1)
+  par(new=T)
+  qqnorm(e2,axes=F,xlab="",ylab="", type="l",ylim=faixa,lty=1)
+  par(new=T)
+  qqnorm(med,axes=F,xlab="",ylab="",type="l",ylim=faixa,lty=2)
   
-  fit.j<-stepJAQ(fit1, trace = 0)
-  
-  if(deparse(formula(fit.model))==deparse(formula(fit.j)))
+  ind <- numeric(n)
+  ind <- sort(tsi)<sort(e1) | sort(tsi)>sort(e2)
+  prop.fora<-sum(ind)/n
+  qualidade<-NULL
+  if(prop.fora==0)
   {
-   cat("BIC e Seleção via Teste F chegaram no mesmo modelo final!")
-  }
-  teste<-try(envelope(fit.j,tipo=tipo, ligacao=ligacao, alfa=alfa), silent = TRUE)
-  aux<-sum(class(teste) != "try-error")
-  if(aux==0)
+    qualidade<-"Ótimo"
+  }else if(prop.fora>0 & prop.fora<alfa/2)
   {
-    qualidade<-"Não Rodou"
-  }else{
-    qualidade<-teste
+    qualidade<-"Bom"
+  } else if((prop.fora>=alfa/2 & prop.fora<=alfa))
+  {
+    qualidade<-"Razoável"
+    
+  }else if((prop.fora>alfa))
+  {
+    qualidade<-"Ruim"
   }
-  return(data.frame(Familia=familia,
-                    QQplot=qualidade,
-                    BIC=as.numeric(round(AIC(fit.j,k=log(n)),6))))
+  return(list(qualidade, plot_capturado))
 }
 
-modelo<-resistencia ~ voltagem + temperatura
 
-
-Resultados1<-ResultadosNormal(dados = vidros, modelo, ligacao = "log", tipo="envel_norm_log")
-
-Resultados2<-ResultadosNormal(dados = vidros, modelo, ligacao = "inverse",
-                   tipo="envel_norm_inverse")
-rbind(Resultados1, Resultados2)
-
+resultado<-function()
+{
+  meu.amb<-new.env()
+  n<-nrow(vidros)
+  modelo<-resistencia ~ voltagem + temperatura
+  fit1<- glm(modelo, family=gaussian)
+  fit.model<-stepAIC(fit1,k=log(n), trace = 0)
+  grafico()
+  # teste<-try(source("MLG/Funcoes/envel_norm.txt"))
+}
+resultado()
+  
 ```
 
 

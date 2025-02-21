@@ -87,6 +87,7 @@ rownames(tab)=c('BIC','Envelope')
 n=length(cpue)
 
 
+
 ######## Modelo Normal
 j=1
 fit1=glm(cpue ~ frota + ano + trim + latitude + longitude, family=gaussian)  # Identity
