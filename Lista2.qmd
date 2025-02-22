@@ -57,91 +57,177 @@ A temperatura apresenta uma mediana levemente menor, ou seja, talvez os vidros s
 
 ## Seleção do modelo
 
-# Normal
+### Normal
 ```{r}
+modelo<-resistencia ~ voltagem + temperatura
 
-envel_norm<-function(fit.model,alfa)
+selecaoModeloNormal<-function(dados, modelo, ligacao)
 {
-  par(mfrow=c(1,1))
-  X <- model.matrix(fit.model)
-  n <- nrow(X)
-  p <- ncol(X)
-  
-  H <- X%*%solve(t(X)%*%X)%*%t(X)
-  h <- diag(H)
-  si <- lm.influence(fit.model)$sigma
-  r <- resid(fit.model)
-  tsi <- r/(si*sqrt(1-h))
-  #
-  ident <- diag(n)
-  epsilon <- matrix(0,n,100)
-  e <- matrix(0,n,100)
-  e1 <- numeric(n)
-  e2 <- numeric(n)
-  #
-  for(i in 1:100){
-    epsilon[,i] <- rnorm(n,0,1)
-    e[,i] <- (ident - H)%*%epsilon[,i]
-    u <- diag(ident - H)
-    e[,i] <- e[,i]/sqrt(u)
-    e[,i] <- sort(e[,i]) }
-  #
-  for(i in 1:n){
-    eo <- sort(e[i,])
-    e1[i] <- (eo[2]+eo[3])/2
-    e2[i] <- (eo[97]+eo[98])/2 }
-  #
-  med <- apply(e,1,mean)
-  faixa <- range(tsi,e1,e2)
-  #
-  par(pty="s")
-  pp=qqnorm(tsi,xlab="Percentis da N(0,1)",
-            ylab="Residuo Studentizado", ylim=faixa, pch=16)
-  par(new=T)
-  qqnorm(e1,axes=F,xlab="",ylab="",type="l",ylim=faixa,lty=1)
-  par(new=T)
-  qqnorm(e2,axes=F,xlab="",ylab="", type="l",ylim=faixa,lty=1)
-  par(new=T)
-  qqnorm(med,axes=F,xlab="",ylab="",type="l",ylim=faixa,lty=2)
-  
-  ind <- numeric(n)
-  ind <- sort(tsi)<sort(e1) | sort(tsi)>sort(e2)
-  prop.fora<-sum(ind)/n
-  qualidade<-NULL
-  if(prop.fora==0)
+  fit1<- switch(ligacao,
+                identity = glm(modelo, family=gaussian),
+                log = glm(modelo, family=gaussian(link=log)),
+                inverse = glm(modelo, family=gaussian(link=inverse)),
+                stop("Link não reconhecido"))
+  fit.model<-stepAIC(fit1, trace=0)
+  return(fit.model)
+}
+selecaoModeloNormal(vidros, modelo, ligacao = "identity")
+selecaoModeloNormal(vidros, modelo, ligacao = "log")
+selecaoModeloNormal(vidros, modelo, ligacao = "inverse")
+
+ResultadosNormal<-function(dados, modelo, ligacao, tipo, alfa=0.05)
+{
+  n<-nrow(dados)
+  familia<-paste0("Normal-Link(",ligacao,")")
+  fits<-selecaoModeloNormal(dados, modelo, ligacao)
+  bic<-as.numeric(round(AIC(fits,k=log(n)),6))
+  modelo.s<-deparse(formula(fits))
+  teste<-try(envelope(fits,tipo), silent=T)
+  aux<-sum(class(teste) != "try-error")
+  if(aux==0)
   {
-    qualidade<-"Ótimo"
-  }else if(prop.fora>0 & prop.fora<alfa/2)
-  {
-    qualidade<-"Bom"
-  } else if((prop.fora>=alfa/2 & prop.fora<=alfa))
-  {
-    qualidade<-"Razoável"
-    
-  }else if((prop.fora>alfa))
-  {
-    qualidade<-"Ruim"
+    qualidade<-"Não Rodou"
+    return(data.frame(Family=familia,
+                      QQplot=qualidade,
+                      BIC=bic,
+                      Modelo=modelo.s))
+  }else{
+    qualidade<-teste[[1]]
+    replayPlot(teste[[2]])
+    return(data.frame(Family=familia,
+                      QQplot=qualidade,
+                      BIC=bic,
+                      Modelo=modelo.s))
+
   }
-  return(list(qualidade, plot_capturado))
 }
 
+ResultadosNormal(vidros, modelo, ligacao = "identity", tipo ="envel_norm")
+ResultadosNormal(vidros, modelo, ligacao = "log", tipo ="envel_norm_log")
+ResultadosNormal(vidros, modelo, ligacao = "inverse", tipo ="envel_norm_inverse")
 
-resultado<-function()
-{
-  meu.amb<-new.env()
-  n<-nrow(vidros)
-  modelo<-resistencia ~ voltagem + temperatura
-  fit1<- glm(modelo, family=gaussian)
-  fit.model<-stepAIC(fit1,k=log(n), trace = 0)
-  grafico()
-  # teste<-try(source("MLG/Funcoes/envel_norm.txt"))
-}
-resultado()
   
 ```
 
+### Gama
 
+```{r}
+selecaoModeloGama<-function(dados, modelo, ligacao)
+{
+  fit1<- switch(ligacao,
+                identity = glm(modelo, family=Gamma),
+                log = glm(modelo, family=Gamma(link=log)),
+                inverse = glm(modelo, family=Gamma(link=inverse)),
+                stop("Link não reconhecido"))
+  fit.model<-stepAIC(fit1, trace=0)
+  return(fit.model)
+}
+selecaoModeloGama(vidros, modelo, ligacao = "identity")
+selecaoModeloGama(vidros, modelo, ligacao = "log")
+selecaoModeloGama(vidros, modelo, ligacao = "inverse")
 
+ResultadosGama<-function(dados, modelo, ligacao, tipo, alfa=0.05)
+{
+  n<-nrow(dados)
+  familia<-paste0("Gamma-Link(",ligacao,")")
+  fits<-selecaoModeloGama(dados, modelo, ligacao)
+  bic<-as.numeric(round(AIC(fits,k=log(n)),6))
+  modelo.s<-deparse(formula(fits))
+  teste<-try(envelope(fits,tipo), silent=T)
+  aux<-sum(class(teste) != "try-error")
+  if(aux==0)
+  {
+    qualidade<-"Não Rodou"
+    return(data.frame(Family=familia,
+                      QQplot=qualidade,
+                      BIC=bic,
+                      Modelo=modelo.s))
+  }else{
+    qualidade<-teste[[1]]
+    replayPlot(teste[[2]])
+    return(data.frame(Family=familia,
+                      QQplot=qualidade,
+                      BIC=bic,
+                      Modelo=modelo.s))
+
+  }
+}
+
+ResultadosGama(vidros, modelo, ligacao = "identity", tipo ="envel_gama")
+ResultadosGama(vidros, modelo, ligacao = "log", tipo ="envel_gama_log")
+ResultadosGama(vidros, modelo, ligacao = "inverse", tipo ="envel_gama_inverse")
+
+```
+
+### Normal Inversa
+
+```{r}
+selecaoNI<-function(dados, modelo, ligacao)
+{
+  fit1<- switch(ligacao,
+                inverse2 = glm(modelo, family=inverse.gaussian),
+                log = glm(modelo, family=inverse.gaussian(link=log)),
+                inverse = glm(modelo, family=inverse.gaussian(link=inverse)),
+                identity= glm(modelo, family=inverse.gaussian(link=identity)),
+                stop("Link não reconhecido"))
+  fit.model<-stepAIC(fit1, trace=0)
+  return(fit.model)
+}
+selecaoNI(vidros, modelo, ligacao = "inverse2")
+selecaoNI(vidros, modelo, ligacao = "identity")
+selecaoNI(vidros, modelo, ligacao = "log")
+selecaoNI(vidros, modelo, ligacao = "inverse")
+
+ResultadosNI<-function(dados, modelo, ligacao, tipo, alfa=0.05)
+{
+  n<-nrow(dados)
+  familia<-paste0("Normal Inversa-Link(",ligacao,")")
+  fits<-selecaoNI(dados, modelo, ligacao)
+  bic<-as.numeric(round(AIC(fits,k=log(n)),6))
+  modelo.s<-deparse(formula(fits))
+  teste<-try(envelope(fits,tipo), silent=T)
+  aux<-sum(class(teste) != "try-error")
+  if(aux==0)
+  {
+    qualidade<-"Não Rodou"
+    return(data.frame(Family=familia,
+                      QQplot=qualidade,
+                      BIC=bic,
+                      Modelo=modelo.s))
+  }else{
+    qualidade<-teste[[1]]
+    replayPlot(teste[[2]])
+    return(data.frame(Family=familia,
+                      QQplot=qualidade,
+                      BIC=bic,
+                      Modelo=modelo.s))
+
+  }
+}
+
+ResultadosNI(vidros, modelo, ligacao = "identity", tipo ="envel_ninv")
+ResultadosNI(vidros, modelo, ligacao = "log", tipo ="envel_ninv_log")
+ResultadosNI(vidros, modelo, ligacao = "inverse", tipo ="envel_ninv_inverse")
+ResultadosNI(vidros, modelo, ligacao = "inverse2", tipo ="envel_ninv_inverse2")
+
+```
+```{r}
+selecaoModelo<-rbind(
+ResultadosNI(vidros, modelo, ligacao = "identity", tipo ="envel_ninv"),
+ResultadosNI(vidros, modelo, ligacao = "log", tipo ="envel_ninv_log"),
+ResultadosNI(vidros, modelo, ligacao = "inverse", tipo ="envel_ninv_inverse"),
+ResultadosNI(vidros, modelo, ligacao = "inverse2", tipo ="envel_ninv_inverse2"),
+ResultadosGama(vidros, modelo, ligacao = "identity", tipo ="envel_gama"),
+ResultadosGama(vidros, modelo, ligacao = "log", tipo ="envel_gama_log"),
+ResultadosGama(vidros, modelo, ligacao = "inverse", tipo ="envel_gama_inverse"),
+ResultadosNormal(vidros, modelo, ligacao = "identity", tipo ="envel_norm"),
+ResultadosNormal(vidros, modelo, ligacao = "log", tipo ="envel_norm_log"),
+ResultadosNormal(vidros, modelo, ligacao = "inverse", tipo ="envel_norm_inverse")
+)
+
+selecaoModelo |>
+  arrange(BIC)
+```
 
 
 
