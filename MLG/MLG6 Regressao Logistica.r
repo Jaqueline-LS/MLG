@@ -198,7 +198,7 @@ rm(list = ls())
 
 #Exemplo 2 (Gilberto): estudo para avaliar o poss?vel efeito cancer?geno do fungicida Avadex
 # Abrir arquivo "Aula Gilberto Logistica.pdf", pag. 14
-dado=read.table(file="Ratos.txt",header=T)
+dado=read.table(file="MLG/Dados/Ratos.txt",header=T)
 attach(dado)
 n=length(Tumor)
 

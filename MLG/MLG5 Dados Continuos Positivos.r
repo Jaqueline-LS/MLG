@@ -232,9 +232,7 @@ plot(latitude,tD)
 # Diagn?sticos
 # Pontos de Alavanca
 plot(hii)
-ind=identify(hii)
-
-# Influ?ncia - Dele??o de Casos
+innflu?ncia - Dele??o de Casos
 # Afastamento pela log-verossimilhan?a
 LD = hii*(tS^2)/(1-hii)
 plot(LD)
@@ -245,7 +243,9 @@ cpue[c(3,8)]
 summary(cpue)
 summary(latitude)
 summary(longitude)
+d=identify(hii)
 
+# I
 ######################################################################################
 # Dados de Snack (Gilberto)
 snack <- read.table(file="MLG/Dados/snack.dat",header=F,col.names=c("cisalhamento","grupo","semana"))

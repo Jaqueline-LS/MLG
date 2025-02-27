@@ -1,4 +1,4 @@
-envel_gama<-function(fit.model,alfa=0.05)
+envel_bino_logit<-function(fit.model,alfa=0.05)
 {
   par(mfrow=c(1,1))
   X <- model.matrix(fit.model)
@@ -9,24 +9,21 @@ envel_gama<-function(fit.model,alfa=0.05)
   H <- solve(t(X)%*%W%*%X)
   H <- sqrt(W)%*%X%*%H%*%t(X)%*%sqrt(W)
   h <- diag(H)
-  ro <- resid(fit.model,type="response")
-  fi <- (n-p)/sum((ro/(fitted(fit.model)))^ 2)
-  td <- resid(fit.model,type="deviance")*sqrt(fi/(1-h))
-  #
+  td <- resid(fit.model,type="deviance")/sqrt(1-h)
   e <- matrix(0,n,100)
   #
   for(ii in 1:100){
-    resp <- rgamma(n,fi)
-    resp <- (fitted(fit.model)/fi)*resp
-    fit <- glm(resp ~ X, family=Gamma(link=identity))
+    dif <- runif(n) - fitted(fit.model)
+    dif[dif >= 0 ] <- 0
+    dif[dif<0] <- 1
+    nresp <- dif
+    fit <- glm(nresp ~ X, family=binomial)
     w <- fit$weights
     W <- diag(w)
     H <- solve(t(X)%*%W%*%X)
     H <- sqrt(W)%*%X%*%H%*%t(X)%*%sqrt(W)
     h <- diag(H)
-    ro <- resid(fit,type="response")
-    phi <- (n-p)/sum((ro/(fitted(fit)))^ 2)
-    e[,ii] <- sort(resid(fit,type="deviance")*sqrt(phi/(1-h)))}
+    e[,ii] <- sort(resid(fit,type="deviance")/sqrt(1-h))}
   #
   e1 <- numeric(n)
   e2 <- numeric(n)
@@ -48,6 +45,9 @@ envel_gama<-function(fit.model,alfa=0.05)
   qqnorm(e2,axes=F,xlab="",ylab="", type="l",ylim=faixa,lty=1)
   par(new=T)
   qqnorm(med,axes=F,xlab="", ylab="", type="l",ylim=faixa,lty=2)
+  #---------------------------------------------------------------#                      
+  
+  
   plot_capturado<-recordPlot()
   ind <- numeric(n)
   ind <- sort(td)<sort(e1) | sort(td)>sort(e2)

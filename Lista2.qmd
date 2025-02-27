@@ -26,8 +26,9 @@ source('MLG/Funcoes/envelope.r')
 
 cores<-c("#BAF3DE","#C9E69E","#FFC29A","#FF9B95")
 
-
 ```
+
+
 
 # Exercício 7
 
@@ -63,48 +64,57 @@ modelo<-resistencia ~ voltagem + temperatura
 
 selecaoModeloNormal<-function(dados, modelo, ligacao)
 {
-  fit1<- switch(ligacao,
+  fit1<-try(switch(ligacao,
                 identity = glm(modelo, family=gaussian),
                 log = glm(modelo, family=gaussian(link=log)),
                 inverse = glm(modelo, family=gaussian(link=inverse)),
-                stop("Link não reconhecido"))
-  fit.model<-stepAIC(fit1, trace=0)
+                stop("Link não reconhecido")), silent = T)
+  
+  aux<-sum(class(fit1) != "try-error")
+  if(aux==0)
+  {
+    fit.model<-0
+  }else{
+      fit.model<-stepAIC(fit1, trace=0)
+  }
   return(fit.model)
 }
-selecaoModeloNormal(vidros, modelo, ligacao = "identity")
-selecaoModeloNormal(vidros, modelo, ligacao = "log")
-selecaoModeloNormal(vidros, modelo, ligacao = "inverse")
 
 ResultadosNormal<-function(dados, modelo, ligacao, tipo, alfa=0.05)
 {
   n<-nrow(dados)
   familia<-paste0("Normal-Link(",ligacao,")")
+  print(familia)
   fits<-selecaoModeloNormal(dados, modelo, ligacao)
-  bic<-as.numeric(round(AIC(fits,k=log(n)),6))
-  modelo.s<-deparse(formula(fits))
-  teste<-try(envelope(fits,tipo), silent=T)
-  aux<-sum(class(teste) != "try-error")
-  if(aux==0)
+  if(is.numeric(fits))
   {
+    bic<-"Não Rodou"
     qualidade<-"Não Rodou"
-    return(data.frame(Family=familia,
-                      QQplot=qualidade,
-                      BIC=bic,
-                      Modelo=modelo.s))
-  }else{
-    qualidade<-teste[[1]]
-    replayPlot(teste[[2]])
-    return(data.frame(Family=familia,
-                      QQplot=qualidade,
-                      BIC=bic,
-                      Modelo=modelo.s))
+    modelo.s<-"-----"
 
+  }else{
+         bic<-as.numeric(round(AIC(fits,k=log(n)),6))
+         modelo.s<-deparse(formula(fits))
+         teste<-try(envelope(fits,tipo), silent=T)
+         aux<-sum(class(teste) != "try-error")
+        if(aux==0)
+        {
+            qualidade<-"Não Rodou"
+       }else{
+              qualidade<-teste[[1]]
+            }
   }
+  return(data.frame(Family=familia,
+                      QQplot=qualidade,
+                      BIC=bic,
+                      Modelo=modelo.s))
+  
 }
 
-ResultadosNormal(vidros, modelo, ligacao = "identity", tipo ="envel_norm")
-ResultadosNormal(vidros, modelo, ligacao = "log", tipo ="envel_norm_log")
-ResultadosNormal(vidros, modelo, ligacao = "inverse", tipo ="envel_norm_inverse")
+normal<-rbind(
+ResultadosNormal(vidros, modelo, ligacao = "identity", tipo ="envel_norm"),
+ResultadosNormal(vidros, modelo, ligacao = "log", tipo ="envel_norm_log"),
+ResultadosNormal(vidros, modelo, ligacao = "inverse", tipo ="envel_norm_inverse"))
 
   
 ```
@@ -114,48 +124,55 @@ ResultadosNormal(vidros, modelo, ligacao = "inverse", tipo ="envel_norm_inverse"
 ```{r}
 selecaoModeloGama<-function(dados, modelo, ligacao)
 {
-  fit1<- switch(ligacao,
+  fit1<- try(switch(ligacao,
                 identity = glm(modelo, family=Gamma),
                 log = glm(modelo, family=Gamma(link=log)),
                 inverse = glm(modelo, family=Gamma(link=inverse)),
-                stop("Link não reconhecido"))
-  fit.model<-stepAIC(fit1, trace=0)
+                stop("Link não reconhecido")),silent = T)
+  aux<-sum(class(fit1) != "try-error")
+  if(aux==0)
+  {
+    fit.model<-0
+  }else{
+      fit.model<-stepAIC(fit1, trace=0)
+  }
   return(fit.model)
 }
-selecaoModeloGama(vidros, modelo, ligacao = "identity")
-selecaoModeloGama(vidros, modelo, ligacao = "log")
-selecaoModeloGama(vidros, modelo, ligacao = "inverse")
+
 
 ResultadosGama<-function(dados, modelo, ligacao, tipo, alfa=0.05)
 {
   n<-nrow(dados)
   familia<-paste0("Gamma-Link(",ligacao,")")
+  print(familia)
   fits<-selecaoModeloGama(dados, modelo, ligacao)
-  bic<-as.numeric(round(AIC(fits,k=log(n)),6))
-  modelo.s<-deparse(formula(fits))
-  teste<-try(envelope(fits,tipo), silent=T)
-  aux<-sum(class(teste) != "try-error")
-  if(aux==0)
+  if(is.numeric(fits))
   {
+    bic<-"Não Rodou"
     qualidade<-"Não Rodou"
-    return(data.frame(Family=familia,
-                      QQplot=qualidade,
-                      BIC=bic,
-                      Modelo=modelo.s))
+    modelo.s<-"-----"
+
   }else{
-    qualidade<-teste[[1]]
-    replayPlot(teste[[2]])
-    return(data.frame(Family=familia,
+         bic<-as.numeric(round(AIC(fits,k=log(n)),6))
+         modelo.s<-deparse(formula(fits))
+         teste<-try(envelope(fits,tipo), silent=T)
+         aux<-sum(class(teste) != "try-error")
+         if(aux==0)
+        {
+           qualidade<-"Não Rodou"
+        }else{
+              qualidade<-teste[[1]]
+          } 
+       }
+ return(data.frame(Family=familia,
                       QQplot=qualidade,
                       BIC=bic,
                       Modelo=modelo.s))
-
-  }
 }
-
-ResultadosGama(vidros, modelo, ligacao = "identity", tipo ="envel_gama")
-ResultadosGama(vidros, modelo, ligacao = "log", tipo ="envel_gama_log")
-ResultadosGama(vidros, modelo, ligacao = "inverse", tipo ="envel_gama_inverse")
+gama<-rbind(
+ResultadosGama(vidros, modelo, ligacao = "identity", tipo ="envel_gama"),
+ResultadosGama(vidros, modelo, ligacao = "log", tipo ="envel_gama_log"),
+ResultadosGama(vidros, modelo, ligacao = "inverse", tipo ="envel_gama_inverse"))
 
 ```
 
@@ -164,74 +181,843 @@ ResultadosGama(vidros, modelo, ligacao = "inverse", tipo ="envel_gama_inverse")
 ```{r}
 selecaoNI<-function(dados, modelo, ligacao)
 {
-  fit1<- switch(ligacao,
+  fit1<- try(switch(ligacao,
                 inverse2 = glm(modelo, family=inverse.gaussian),
                 log = glm(modelo, family=inverse.gaussian(link=log)),
                 inverse = glm(modelo, family=inverse.gaussian(link=inverse)),
                 identity= glm(modelo, family=inverse.gaussian(link=identity)),
-                stop("Link não reconhecido"))
-  fit.model<-stepAIC(fit1, trace=0)
+                stop("Link não reconhecido")), silent = T)
+  aux<-sum(class(fit1) != "try-error")
+  if(aux==0)
+  {
+    fit.model<-0
+  }else{
+    fit.model<-stepAIC(fit1, trace=0)
+  }
   return(fit.model)
+
 }
-selecaoNI(vidros, modelo, ligacao = "inverse2")
-selecaoNI(vidros, modelo, ligacao = "identity")
-selecaoNI(vidros, modelo, ligacao = "log")
-selecaoNI(vidros, modelo, ligacao = "inverse")
+
+
 
 ResultadosNI<-function(dados, modelo, ligacao, tipo, alfa=0.05)
 {
   n<-nrow(dados)
   familia<-paste0("Normal Inversa-Link(",ligacao,")")
+  print(familia)
   fits<-selecaoNI(dados, modelo, ligacao)
-  bic<-as.numeric(round(AIC(fits,k=log(n)),6))
-  modelo.s<-deparse(formula(fits))
-  teste<-try(envelope(fits,tipo), silent=T)
-  aux<-sum(class(teste) != "try-error")
-  if(aux==0)
+  if(is.numeric(fits))
   {
+    bic<-"Não Rodou"
     qualidade<-"Não Rodou"
-    return(data.frame(Family=familia,
-                      QQplot=qualidade,
-                      BIC=bic,
-                      Modelo=modelo.s))
+    modelo.s<-"-----"
   }else{
-    qualidade<-teste[[1]]
-    replayPlot(teste[[2]])
-    return(data.frame(Family=familia,
-                      QQplot=qualidade,
-                      BIC=bic,
-                      Modelo=modelo.s))
+    bic<-as.numeric(round(AIC(fits,k=log(n)),6))
+    modelo.s<-deparse(formula(fits))
+    teste<-try(envelope(fits,tipo), silent=T)
+    aux<-sum(class(teste) != "try-error")
+    if(aux==0)
+    {
+      qualidade<-"Não Rodou"
+    }else{
+          qualidade<-teste[[1]]
+    }
 
   }
+  return(data.frame(Family=familia,
+                      QQplot=qualidade,
+                      BIC=bic,
+                      Modelo=modelo.s))
 }
 
-ResultadosNI(vidros, modelo, ligacao = "identity", tipo ="envel_ninv")
-ResultadosNI(vidros, modelo, ligacao = "log", tipo ="envel_ninv_log")
-ResultadosNI(vidros, modelo, ligacao = "inverse", tipo ="envel_ninv_inverse")
-ResultadosNI(vidros, modelo, ligacao = "inverse2", tipo ="envel_ninv_inverse2")
-
-```
-```{r}
-selecaoModelo<-rbind(
+NI<-rbind(
 ResultadosNI(vidros, modelo, ligacao = "identity", tipo ="envel_ninv"),
 ResultadosNI(vidros, modelo, ligacao = "log", tipo ="envel_ninv_log"),
 ResultadosNI(vidros, modelo, ligacao = "inverse", tipo ="envel_ninv_inverse"),
-ResultadosNI(vidros, modelo, ligacao = "inverse2", tipo ="envel_ninv_inverse2"),
-ResultadosGama(vidros, modelo, ligacao = "identity", tipo ="envel_gama"),
-ResultadosGama(vidros, modelo, ligacao = "log", tipo ="envel_gama_log"),
-ResultadosGama(vidros, modelo, ligacao = "inverse", tipo ="envel_gama_inverse"),
-ResultadosNormal(vidros, modelo, ligacao = "identity", tipo ="envel_norm"),
-ResultadosNormal(vidros, modelo, ligacao = "log", tipo ="envel_norm_log"),
-ResultadosNormal(vidros, modelo, ligacao = "inverse", tipo ="envel_norm_inverse")
+ResultadosNI(vidros, modelo, ligacao = "inverse2", tipo ="envel_ninv_inverse2"))
+
+```
+
+```{r}
+selecaoModelo<-rbind(normal, gama, NI
 )
 
 selecaoModelo |>
-  arrange(BIC)
+  arrange(BIC) |>
+  knitr::kable(caption = "Melhor modelo", format ="pipe")
+```
+
+O modelo selecionado foi o Gama-Link(log) resistencia ~ voltagem + temperatura
+
+## Teste de adequação da função de ligação
+```{r}
+modelo<- resistencia ~ voltagem + temperatura
+fit.model <- glm(modelo , family=Gamma(link=log))
+pl2 <- predict(fit.model)^2 
+fit.model2<-glm(update.formula(modelo,~ . + pl2), family=Gamma(link=log))
+testef(fit.model,fit.model2) # fit.model(H0: pl2 não significativa) #H1: pl2 é significativa
+```
+Não temos evidências para rejeitar $H_0$, a função de ligação "log" é adequada para o modelo.
+
+
+## Resíduos e Diagnóstico
+
+```{r}
+modelo<- resistencia ~ voltagem + temperatura
+fit.model <- glm(modelo , family=Gamma(link=log))
+fi <- gamma.shape(fit.model)$alpha
+X <- model.matrix(fit.model)
+V <- fitted(fit.model)  # vetor de valores ajustados (model$fitted.values)
+w <- fit.model$weights  # vetor de pesos
+W <- diag(w)
+H1 <- solve(t(X)%*%W%*%X)
+H <- sqrt(W)%*%X%*%H1%*%t(X)%*%sqrt(W)
+hii <- diag(H)  # vetor diagonal de H
+
+# Residuos
+rD <- resid(fit.model, type= "deviance")
+tD <- rD*sqrt(fi/(1-hii))   # residuo deviance padronizado
+rp1 <- resid(fit.model, type= "pearson")
+rP <- as.numeric(sqrt(fi)*rp1)
+tS <- rP/sqrt(V*(1 - hii))  # Residuo padronizado
+
+plot(tD)
+plot(V,tD) 
+```
+Não foi identificado nenhum padrão nos resíduos. O modelo foi validado.
+
+
+#### Influência
+```{r}
+plot(hii)
+w
+```
+Os peso $w_i$ são iguais a 1.
+
+```{r}
+LD = hii*(tS^2)/(1-hii)
+plot(LD)
+which(LD==max(LD))
+
+X[14,]
+voltagem[14]
+resistencia[14]
+summary(resistencia)
+
+```
+
+## Interpretação
+
+```{r}
+exp(fit.model$coefficients)
+```
+A temperatura de 180°C reduz a resistência em 21.7% em relação a temperatura de 170°C.
+
+A voltagem 250kV reduz a resistência em 42.3% comparado com a voltagem de 200kV.
+
+A voltagem 300kV reduz a resistência em 62.6% comparado com a voltagem de 200kV.
+
+A voltagem 350kV reduz a resistência em 63.9% comparado com a voltagem de 200kV.
+
+
+# Exercício 15
+
+```{r, warning=FALSE}
+suppressMessages(energy <- read_table("dados/lista2/energy.txt", 
+    col_names = FALSE))
+colnames(energy)<-c("demanda","consumo_mensal")
+```
+
+## Análise Exploratória
+```{r}
+suppressMessages(attach(energy))
+summary(demanda)
+summary(consumo_mensal)
+
+hist(demanda, col=cores[1], freq=F)
+```
+A demanda é assimétrica positiva.
+
+```{r}
+plot(demanda~consumo_mensal, pch=19, col=cores[1])
+
+```
+
+## Seleção do modelo
+
+
+### Normal
+
+```{r}
+modelo<-demanda ~ consumo_mensal
+normal<-rbind(
+ResultadosNormal(energy, modelo, ligacao = "identity", tipo ="envel_norm"),
+ResultadosNormal(energy, modelo, ligacao = "log", tipo ="envel_norm_log"),
+ResultadosNormal(energy, modelo, ligacao = "inverse", tipo ="envel_norm_inverse"))
+
+
+```
+
+### Gama
+
+```{r}
+gama<-rbind(
+ResultadosGama(energy, modelo, ligacao = "identity", tipo ="envel_gama"),
+ResultadosGama(energy, modelo, ligacao = "log", tipo ="envel_gama_log"),
+ResultadosGama(energy, modelo, ligacao = "inverse", tipo ="envel_gama_inverse"))
+
 ```
 
 
+### Normal Inversa
+
+```{r, warning=F}
+NI<-rbind(
+ResultadosNI(energy, modelo, ligacao = "identity", tipo ="envel_ninv"),
+ResultadosNI(energy, modelo, ligacao = "log", tipo ="envel_ninv_log"),
+ResultadosNI(energy, modelo, ligacao = "inverse", tipo ="envel_ninv_inverse"),
+ResultadosNI(energy, modelo, ligacao = "inverse2", tipo ="envel_ninv_inverse2"))
+
+```
+
+
+```{r}
+selecaoModelo<-rbind(normal, gama, NI
+)
+
+selecaoModelo |>
+  arrange(BIC) |>
+  knitr::kable(caption = "Melhor modelo", format ="pipe")
+```
+O modelo selecionado foi o Normal Inversa - Link (log) demanda ~ consumo_mensal
+
+## Teste de adequação da função de ligação
+
+
+```{r}
+modelo<- demanda ~ consumo_mensal
+fit.model <- glm(modelo , family=inverse.gaussian(link=log))
+pl2 <- predict(fit.model)^2 
+fit.model2<-glm(update.formula(modelo,~ . + pl2), family=inverse.gaussian(link=log))
+testef(fit.model,fit.model2) # fit.model(H0: pl2 não significativa) #H1: pl2 é significativa
+```
+A ligação log é adequada para o modelo.
+
+## Resíduos e Diagnóstico
+
+```{r}
+modelo<-demanda ~ consumo_mensal
+fit.model<-glm(modelo,family=inverse.gaussian(link=log))
+X <- model.matrix(fit.model)
+n <- nrow(X)
+p <- ncol(X)
+w <- fit.model$weights
+V<-fitted(fit.model)
+mu <-predict(fit.model,type="response")
+W <- diag(w)
+H <- solve(t(X)%*%W%*%X)
+H <- sqrt(W)%*%X%*%H%*%t(X)%*%sqrt(W)
+hii <- diag(H)
+ro <- resid(fit.model,type="response")
+fi <- (n-p)/sum((ro^2)/(fitted(fit.model)^3))
+td <- resid(fit.model,type="deviance")*sqrt(fi/(1-hii))
+# residuo deviance padronizado
+rp1 <- resid(fit.model, type= "pearson")
+rP <- as.numeric(sqrt(fi)*rp1)
+tS <- rP/sqrt(V*(1 - hii))  # Residuo padronizado
+plot(td,pch=19, col=cores[3])
+plot(V,td, main="Resíduo x Ajustado", pch=19, col=cores[3]) 
+plot(consumo_mensal, td,pch=19, col=cores[3] )
+str(td)
+```
+Os resíduos não parecem homocedásticos, a variância diminui com o aumento do valor predito.
+
+#### Influência
+```{r}
+plot(hii)
+hii[50]
+
+consumo_mensal[50]
+demanda[50]
+summary(demanda)
+summary(consumo_mensal)
+```
+A observação 50 é a com maior alavanca, ela é o  domicílio com maior consumo e maior demanda em horário de pico.
+
+```{r}
+LD = hii*(tS^2)/(1-hii)
+plot(LD)
+which(LD==max(LD))
+```
+A observação 26 exerce maior influência na verossimilhança.
+
+```{r}
+X[26,]
+summary(consumo_mensal)
+demanda[26]
+summary(demanda)
+
+```
+Esse domicílio apresenta uma demanda acima da média no horário de pico com um consumo mensal abaixo da média.
+
+
+## Interpretação
+
+```{r}
+exp(fit.model$coefficients)
+```
+
+* A cada unidade de consumo mensal que aumenta a demanda do domicílio em horário de pico aumenta em 19.55%.
 
 
 
+# Exercício 16
+
+```{r, warning=FALSE}
+suppressMessages(restaurante <- read_table("dados/lista2/restaurante.txt", 
+    col_names = FALSE))
+colnames(restaurante)<-c("faturamento","gasto")
+
+```
+
+## Análise Exploratória
+
+```{r}
+suppressMessages(attach(restaurante))
+hist(faturamento, col=cores[4], freq = F, breaks = 10)
+plot(faturamento~gasto, pch=19, col=cores[4])
+
+```
+## Seleção do modelo
 
 
+### Normal
+
+```{r}
+modelo<-faturamento ~ gasto
+normal<-rbind(
+ResultadosNormal(restaurante, modelo, ligacao = "identity", tipo ="envel_norm"),
+ResultadosNormal(restaurante, modelo, ligacao = "log", tipo ="envel_norm_log"),
+ResultadosNormal(restaurante, modelo, ligacao = "inverse", tipo ="envel_norm_inverse"))
+```
+
+### Gama
+
+```{r}
+gama<-rbind(
+ResultadosGama(restaurante, modelo, ligacao = "identity", tipo ="envel_gama"),
+ResultadosGama(restaurante, modelo, ligacao = "log", tipo ="envel_gama_log"),
+ResultadosGama(restaurante, modelo, ligacao = "inverse", tipo ="envel_gama_inverse"))
+
+```
+
+
+### Normal Inversa
+
+```{r, warning=F}
+NI<-rbind(
+ResultadosNI(restaurante, modelo, ligacao = "identity", tipo ="envel_ninv"),
+ResultadosNI(restaurante, modelo, ligacao = "log", tipo ="envel_ninv_log"),
+ResultadosNI(restaurante, modelo, ligacao = "inverse", tipo ="envel_ninv_inverse"),
+ResultadosNI(restaurante, modelo, ligacao = "inverse2", tipo ="envel_ninv_inverse2"))
+
+```
+
+
+```{r}
+selecaoModelo<-rbind(normal, gama, NI
+)
+
+selecaoModelo |>
+  arrange(BIC) |>
+  knitr::kable(caption = "Melhor modelo", format ="pipe")
+```
+O modelo selecionado foi o Normal Inversa-Link(identity).
+
+## Teste de adequação da função de ligação
+
+
+```{r}
+modelo<- faturamento ~ gasto
+fit.model <- glm(modelo , family=inverse.gaussian(link=identity))
+pl2 <- predict(fit.model)^2 
+fit.model2<-glm(update.formula(modelo,~ . + pl2), family=inverse.gaussian(link=identity))
+testef(fit.model,fit.model2) # fit.model(H0: pl2 não significativa) #H1: pl2 é significativa
+```
+A função de ligação identidade é adequada.
+
+
+
+## Resíduos e Diagnóstico
+
+```{r}
+modelo<-faturamento ~ gasto
+fit.model<-glm(modelo,family=inverse.gaussian(link=identity))
+X <- model.matrix(fit.model)
+n <- nrow(X)
+p <- ncol(X)
+w <- fit.model$weights
+V<-fitted(fit.model)
+mu <-predict(fit.model,type="response")
+W <- diag(w)
+H <- solve(t(X)%*%W%*%X)
+H <- sqrt(W)%*%X%*%H%*%t(X)%*%sqrt(W)
+hii <- diag(H)
+ro <- resid(fit.model,type="response")
+fi <- (n-p)/sum((ro^2)/(fitted(fit.model)^3))
+td <- resid(fit.model,type="deviance")*sqrt(fi/(1-hii))
+# residuo deviance padronizado
+rp1 <- resid(fit.model, type= "pearson")
+rP <- as.numeric(sqrt(fi)*rp1)
+tS <- rP/sqrt(V*(1 - hii))  # Residuo padronizado
+plot(td,pch=19, col=cores[2])
+plot(V,td, main="Resíduo x Ajustado", pch=19, col=cores[2]) 
+plot(gasto, td,pch=19, col=cores[2] )
+
+```
+Não foram identificados nenhum padrão nos resíduos, o modelo foi validado.
+
+
+#### Influência
+```{r}
+plot(hii)
+
+
+gasto[c(1,2,3)]
+summary(gasto)
+faturamento[c(1,2,3)]
+summary(faturamento)
+```
+As observações com maiores alavancas são os restaurantes com os menores gastos com publicidade e com menores faturamentos.
+
+```{r}
+LD = hii*(tS^2)/(1-hii)
+plot(LD, pch=19, col=cores[4])
+```
+O restaurante 1 é o com maior influência na verossimilhança.
+
+## Interpretação
+
+```{r}
+fit.model$coefficients
+```
+
+* A cada mil dólares gastos com publicidade o faturamento aumenta  em média 7.88 mil USD.
+
+
+# Exercício 17
+```{r}
+suppressMessages(dfilme <- read_table("dados/lista2/dfilme.txt", 
+    col_names = FALSE))
+colnames(dfilme)<-c("tempo","densidade","condicao")
+dfilme$condicao<-as.factor(dfilme$condicao)
+```
+
+## Análise Exploratória
+```{r}
+suppressMessages(attach(dfilme))
+plot(densidade~tempo, pch=19,col=cores[condicao])
+legend("topright",lwd=2,legend = paste0("condicao ",1:3),col=cores[1:3])
+
+boxplot(densidade~condicao, col=cores[1:3])
+
+```
+Na condição 1 a mediana da densidade máxima do filme é maior. A condição 3 parece ter uma maior variabilidade.
+
+## Seleção do modelo
+
+### Normal
+
+```{r}
+modelo<-densidade ~ tempo + condicao
+normal<-rbind(
+ResultadosNormal(dfilme, modelo, ligacao = "identity", tipo ="envel_norm"),
+ResultadosNormal(dfilme, modelo, ligacao = "log", tipo ="envel_norm_log"),
+ResultadosNormal(dfilme, modelo, ligacao = "inverse", tipo ="envel_norm_inverse"))
+```
+
+### Gama
+
+```{r}
+gama<-rbind(
+ResultadosGama(dfilme, modelo, ligacao = "identity", tipo ="envel_gama"),
+ResultadosGama(dfilme, modelo, ligacao = "log", tipo ="envel_gama_log"),
+ResultadosGama(dfilme, modelo, ligacao = "inverse", tipo ="envel_gama_inverse"))
+
+```
+
+
+### Normal Inversa
+
+```{r, warning=F}
+NI<-rbind(
+ResultadosNI(dfilme, modelo, ligacao = "identity", tipo ="envel_ninv"),
+ResultadosNI(dfilme, modelo, ligacao = "log", tipo ="envel_ninv_log"),
+ResultadosNI(dfilme, modelo, ligacao = "inverse", tipo ="envel_ninv_inverse"),
+ResultadosNI(dfilme, modelo, ligacao = "inverse2", tipo ="envel_ninv_inverse2"))
+
+```
+
+```{r}
+selecaoModelo<-rbind(normal, gama, NI
+)
+
+selecaoModelo |>
+  arrange(BIC) |>
+  knitr::kable(caption = "Melhor modelo", format ="pipe")
+```
+
+
+O modelo selecionado foi o Normal com link "inverse".
+
+## Resíduos e Diagnóstico
+```{r}
+modelo<-densidade ~ tempo + condicao
+fit.model<-glm(modelo,family=gaussian(link=inverse))
+X <- model.matrix(fit.model)
+n <- nrow(X)
+p <- ncol(X)
+w <- fit.model$weights
+fi <- (1/lm.influence(fit.model)$sigma)^2
+V<-fitted(fit.model)
+mu <-predict(fit.model,type="response")
+W <- diag(w)
+H <- solve(t(X)%*%W%*%X)
+H <- sqrt(W)%*%X%*%H%*%t(X)%*%sqrt(W)
+hii <- diag(H)
+ro <- resid(fit.model,type="response")
+td <- resid(fit.model,type="deviance")*sqrt(fi/(1-hii))
+
+# residuo deviance padronizado
+rp1 <- resid(fit.model, type= "pearson")
+rP <- as.numeric(sqrt(fi)*rp1)
+tS <- rP/sqrt(V*(1 - hii))  # Residuo padronizado
+plot(td,pch=19, col=cores[2])
+plot(V,td, main="Resíduo x Ajustado", pch=19, col=cores[2]) 
+plot(tempo, td,pch=19, col=cores[2])
+```
+Não parece haver padrões nos resíduos. Modelo validado.
+
+Com o termo quadrático os resíduos contra o tempo melhoraram, mas os valores ajustados contra os resíduos ainda apresenta um padrão.
+
+## Teste de adequação da função de ligação
+```{r}
+modelo<-densidade~ tempo + condicao 
+fit.model <- glm(modelo , family=gaussian(inverse))
+pl2 <- predict(fit.model)^2 
+fit.model2<-glm(update.formula(modelo,~ . + pl2), family=gaussian(inverse))
+testef(fit.model,fit.model2) # fit.model(H0: pl2 não significativa) #H1: pl2 é significativa
+```
+Temos evidências a 5% que a ligação não é adequada, mas considerando um nível de 1% a ligação pode ser considerada adequada. As evidências não são muito significativas para rejeitar a hipótese nula.
+
+#### Influência
+```{r}
+plot(hii)
+tempo[1]
+summary(tempo)
+densidade[1]
+summary(densidade)
+condicao[1]
+```
+A observação com maior alavanca é a 1, ela possui o maior valor de densidade do filme.
+
+```{r}
+LD = hii*(tS^2)/(1-hii)
+plot(LD, pch=19, col=cores[4])
+```
+Além de ser alavanca a observação 1 influencia na verossimilhança.
+
+
+
+# Exercício 19
+
+```{r, warning=FALSE}
+suppressMessages(sobrev <- read_table("dados/lista2/sobrev.txt", 
+    col_names = FALSE))
+colnames(sobrev)<-c("wbc","tempo", "ag")
+sobrev$ag<-as.factor(sobrev$ag)
+sobrev$wbc<-log(sobrev$wbc)
+```
+
+## Análise Exploratória
+```{r}
+suppressMessages(attach(sobrev))
+boxplot(tempo~ag, col=cores)
+```
+O tempo de sobrevivência dos pacientes que apresentam a característica parece ser maior do que os que não possuiem tal característica.
+
+```{r}
+hist(tempo, col=cores[1])
+```
+Bem assimétrico.
+
+```{r}
+plot(tempo~wbc, col=cores[1], pch=19)
+```
+
+## Seleção do modelo
+
+### Normal
+
+```{r, warning=FALSE}
+modelo<-tempo ~ wbc + ag
+normal<-rbind(
+ResultadosNormal(sobrev, modelo, ligacao = "identity", tipo ="envel_norm"),
+ResultadosNormal(sobrev, modelo, ligacao = "log", tipo ="envel_norm_log"),
+ResultadosNormal(sobrev, modelo, ligacao = "inverse", tipo ="envel_norm_inverse"))
+
+
+```
+
+### Gama
+
+```{r, warning=FALSE}
+gama<-rbind(
+ResultadosGama(sobrev, modelo, ligacao = "identity", tipo ="envel_gama"),
+ResultadosGama(sobrev, modelo, ligacao = "log", tipo ="envel_gama_log"),
+ResultadosGama(sobrev, modelo, ligacao = "inverse", tipo ="envel_gama_inverse"))
+
+```
+
+
+### Normal Inversa
+
+```{r, warning=F}
+NI<-rbind(
+ResultadosNI(sobrev, modelo, ligacao = "identity", tipo ="envel_ninv"),
+ResultadosNI(sobrev, modelo, ligacao = "log", tipo ="envel_ninv_log"),
+ResultadosNI(sobrev, modelo, ligacao = "inverse", tipo ="envel_ninv_inverse"),
+ResultadosNI(sobrev, modelo, ligacao = "inverse2", tipo ="envel_ninv_inverse2"))
+
+```
+
+
+```{r}
+selecaoModelo<-rbind(normal, gama, NI
+)
+
+selecaoModelo |>
+  arrange(BIC) |>
+  knitr::kable(caption = "Melhor modelo", format ="pipe")
+```
+O modelo selecionado foi o Gama - Link (log) tempo ~ log(wbc) + ag
+
+## Teste de adequação da função de ligação
+
+```{r}
+modelo<- tempo ~ wbc + ag
+fit.model <- glm(modelo , family=Gamma(link=log))
+pl2 <- predict(fit.model)^2 
+fit.model2<-glm(update.formula(modelo,~ . + pl2), family=Gamma(link=log))
+testef(fit.model,fit.model2) # fit.model(H0: pl2 não significativa) #H1: pl2 é significativa
+```
+
+A ligação log é adequada para o modelo.
+
+
+
+## Resíduos e Diagnóstico
+
+```{r}
+modelo<- tempo ~ wbc + ag
+fit.model <- glm(modelo , family=Gamma(link=log))
+fi <- gamma.shape(fit.model)$alpha
+X <- model.matrix(fit.model)
+V <- fitted(fit.model)  # vetor de valores ajustados (model$fitted.values)
+w <- fit.model$weights  # vetor de pesos
+W <- diag(w)
+H1 <- solve(t(X)%*%W%*%X)
+H <- sqrt(W)%*%X%*%H1%*%t(X)%*%sqrt(W)
+hii <- diag(H)  # vetor diagonal de H
+
+# Residuos
+rD <- resid(fit.model, type= "deviance")
+tD <- rD*sqrt(fi/(1-hii))   # residuo deviance padronizado
+rp1 <- resid(fit.model, type= "pearson")
+rP <- as.numeric(sqrt(fi)*rp1)
+tS <- rP/sqrt(V*(1 - hii))  # Residuo padronizado
+
+plot(tD)
+plot(V,tD) 
+plot(wbc,tD)
+```
+Não foi identificado nenhum padrão nos resíduos. O modelo foi validado.
+
+
+#### Influência
+```{r}
+plot(hii)
+```
+```{r}
+summary(tempo)
+tempo[3]
+summary(wbc)
+wbc[3]
+
+ag[3]
+
+```
+A observação 3 se refere ao paciente com maior tempo de sobrevivência após o dignóstico. Além disso, ele possui ag positivo para a característica.
+
+```{r}
+LD = hii*(tS^2)/(1-hii)
+plot(LD)
+which(LD==max(LD))
+
+tempo[32]
+wbc[32]
+ag[32]
+summary(wbc)
+
+```
+Já a observação 32 se refere a um paciente sem a característica que possui o valor máximo de células brancas.
+
+## Interpretação
+
+```{r}
+exp(fit.model$coefficients)
+```
+Pacientes com a característica possuem 2.78 vezes o tempo de sobrevivência comparado com os que não possuem a característica.
+
+# Exercício 20
+
+```{r, warning=FALSE}
+suppressMessages(claims <- read_table("dados/lista2/claims.txt", 
+    col_names = FALSE, col_types = cols(X10 = col_skip())))
+colnames(claims)<-c("valorv","expos","nsinistros","csinistros",
+                    "tipov","idadev","sexoc","areac","idadec")
+cmsinistros<-as.numeric(claims$csinistros)/as.numeric(claims$nsinistros)
+
+claims$tipov<-as.factor(claims$tipov)
+claims$idadev<-as.factor(claims$idadev)
+claims$sexoc<-as.factor(claims$sexoc)
+claims$idadec<-as.factor(claims$idadec)
+claims$areac<-as.factor(claims$areac)
+
+
+```
+
+## Análise Exploratória
+
+```{r}
+suppressMessages(attach(claims))
+boxplot(cmsinistros~tipov, col=cores[1])
+boxplot(cmsinistros~idadev, col=cores[1])
+boxplot(cmsinistros~sexoc, col=cores[1])
+boxplot(cmsinistros~idadec, col=cores[1])
+boxplot(cmsinistros~areac, col=cores[1])
+
+plot(cmsinistros~valorv, col=cores[1],pch=19)
+
+plot(cmsinistros~expos, pch=19, col=cores[1])
+hist(cmsinistros, col=cores[1], freq=F)
+```
+
+## Seleção do modelo
+
+### Normal
+
+```{r, warning=FALSE}
+modelo<-cmsinistros ~ valorv+expos+tipov+idadev+sexoc+areac+idadec
+
+normal<-rbind(
+ResultadosNormal(claims, modelo, ligacao = "identity", tipo ="envel_norm"),
+ResultadosNormal(claims, modelo, ligacao = "log", tipo ="envel_norm_log"),
+ResultadosNormal(claims, modelo, ligacao = "inverse", tipo ="envel_norm_inverse"))
+
+
+```
+
+### Gama
+
+```{r, warning=FALSE}
+gama<-rbind(
+ResultadosGama(claims, modelo, ligacao = "identity", tipo ="envel_gama"),
+ResultadosGama(claims, modelo, ligacao = "log", tipo ="envel_gama_log"),
+ResultadosGama(claims, modelo, ligacao = "inverse", tipo ="envel_gama_inverse"))
+
+```
+
+
+### Normal Inversa
+
+```{r, warning=F}
+NI<-rbind(
+ResultadosNI(claims, modelo, ligacao = "identity", tipo ="envel_ninv"),
+ResultadosNI(claims, modelo, ligacao = "log", tipo ="envel_ninv_log"),
+ResultadosNI(claims, modelo, ligacao = "inverse", tipo ="envel_ninv_inverse"),
+ResultadosNI(claims, modelo, ligacao = "inverse2", tipo ="envel_ninv_inverse2"))
+
+```
+
+
+```{r}
+selecaoModelo<-rbind(normal, gama, NI
+)
+
+selecaoModelo |>
+  arrange(BIC) |>
+  knitr::kable(caption = "Melhor modelo", format ="pipe")
+```
+O modelo selecionado foi o Gamma-Link(log) cmsinistros ~ valorv + expos + sexoc + idadec
+
+## Teste de adequação da função de ligação
+
+```{r}
+modelo<- cmsinistros ~ valorv + expos + sexoc + idadec
+fit.model <- glm(modelo , family=Gamma(link=log))
+pl2 <- predict(fit.model)^2 
+fit.model2<-glm(update.formula(modelo,~ . + pl2), family=Gamma(link=log))
+testef(fit.model,fit.model2) # fit.model(H0: pl2 não significativa) #H1: pl2 é significativa
+```
+A função de ligação log não é apropriada.
+
+## Teste de adequação da função de ligação
+
+```{r}
+modelo<- cmsinistros ~ expos + idadec
+fit.model <- glm(modelo , family=gaussian())
+pl2 <- predict(fit.model)^2 
+fit.model2<-glm(update.formula(modelo,~ . + pl2), family=gaussian())
+testef(fit.model,fit.model2) # fit.model(H0: pl2 não significativa) #H1: pl2 é significativa
+```
+A normal com link identidade também não foi adequada.
+
+## Resíduos e Diagnóstico
+
+```{r}
+modelo<- cmsinistros ~ valorv + expos + sexoc + idadec
+fit.model <- glm(modelo , family=Gamma(link=log))
+fi <- gamma.shape(fit.model)$alpha
+X <- model.matrix(fit.model)
+V <- fitted(fit.model)  # vetor de valores ajustados (model$fitted.values)
+w <- fit.model$weights  # vetor de pesos
+W <- diag(w)
+H1 <- solve(t(X)%*%W%*%X)
+H <- sqrt(W)%*%X%*%H1%*%t(X)%*%sqrt(W)
+hii <- diag(H)  # vetor diagonal de H
+
+# Residuos
+rD <- resid(fit.model, type= "deviance")
+tD <- rD*sqrt(fi/(1-hii))   # residuo deviance padronizado
+rp1 <- resid(fit.model, type= "pearson")
+rP <- as.numeric(sqrt(fi)*rp1)
+tS <- rP/sqrt(V*(1 - hii))  # Residuo padronizado
+
+plot(tD)
+plot(V,tD) 
+plot(valorv,tD)
+plot(expos,tD)
+
+```
+Não foi obtido um modelo validado. Os que rodaram não tiveram a ligação adequada.
+
+# Classificação dos envelopes
+
+* **Ótimo:** O qqplot é classificado como ótimo se a proporção de pontos fora das bandas for igual a zero.
+
+* **Bom:** A proporção de pontos fora é maior que zero e menor que alfa/2(alfa=0.05, nesse trabalho).
+
+* **Razoável:** A proporção é maior que alfa/2 e menor que alfa.
+
+* **Ruim:** A proporção de pontos fora das bandas é maior que alfa.

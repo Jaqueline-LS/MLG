@@ -50,13 +50,27 @@ testef<-function(fit0,fit1) {
   list(f=f,df1=df0-df1,df2=df1,pvalue=pvalue)
 }
 
+
 stepJAQ<- function(object, alpha = 0.05, trace = 1, steps = 1000) {
+  
   # Função para calcular o p-valor do teste F
   get_pvalue <- function(fit, term) {
-    reduced_model <- update(fit, paste("~ . -", term))
-    result.testF <- testef(reduced_model,fit)
-    pvalue <- result.testF$pvalue
+
+    reduced_model <- try(update(fit, paste("~ . -", term)), silent = T)
+    aux<-sum(class(reduced_model) != "try-error")
+    if(aux==0)
+    {
+      stop(paste0("Função glm não rodou sem o termo ( ", term," )===>",  reduced_model))
+
+    }else{
+      result.testF <- testef(reduced_model,fit)
+      pvalue <- result.testF$pvalue
+    }
     return(pvalue)
+
+    
+  
+   
   }
   
   # Inicialização
@@ -75,7 +89,6 @@ stepJAQ<- function(object, alpha = 0.05, trace = 1, steps = 1000) {
     
     # Avaliar p-valor para cada variável que ainda esta no modelo
     pvalues <- sapply(scope, function(term) get_pvalue(fit, term))
-    
     # Encontrar a variável com o maior p-valor
     max_pvalue <- max(pvalues)
     term_to_remove <- scope[which.max(pvalues)]

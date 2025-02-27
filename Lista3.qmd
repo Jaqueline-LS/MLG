@@ -1,0 +1,287 @@
+---
+title: "MODELOS LINEARES GENERALIZADOS (EST082)"
+subtitle: "LISTA 3 - Modelo Binomial"
+lang: pt
+author: "Jaqueline Lamas da Silva"
+knitr:
+    opts_chunk: 
+      fig.align: 'center'
+format: 
+  html:
+    self-contained-math: true
+    embed-resources: true
+    code-fold: true
+toc: true
+editor: source
+---
+
+
+```{r, echo=FALSE, warning=FALSE}
+rm(list = ls(all = TRUE))
+suppressMessages(library("dplyr"))
+suppressMessages(library("MASS"))
+suppressMessages(library("readr"))
+source("MLG/Funcoes/StepBackwardF.R")
+source('MLG/Funcoes/envelope.r')
+
+op<-par()
+par<-par(pch=19)
+cores<-c("#BAF3DE","#C9E69E","#FFC29A","#FF9B95")
+
+```
+
+
+# 8.
+
+```{r}
+suppressMessages(sementes <- read_table("dados/lista3/sementes.txt", 
+    col_names = FALSE))
+colnames(sementes)<-c("tempGerm","umidade","temp","numGerminaram")
+sementes$tempGerm<-as.factor(sementes$tempGerm)
+sementes$umidade<-as.factor(sementes$umidade)
+sementes$temp<-as.factor(sementes$temp)
+```
+
+## Análise Exploratória
+
+```{r}
+suppressMessages(attach(sementes))
+
+boxplot(numGerminaram~temp, col=cores, xlab="Nível de temperatura(°C)", ylab=c("Número de sementes germinadas"))
+
+boxplot(numGerminaram~umidade, col=cores, xlab="Nível de temperatura(°C)", ylab=c("Número de sementes germinadas"))
+
+
+
+```
+
+## Seleção do modelo
+
+```{r, warning=FALSE}
+
+n<-nrow(sementes)
+numFrac<-100-numGerminaram
+
+selecaoModeloBinomial<-function(dados, modelo, ligacao, step="AIC")
+{
+  n<-nrow(dados)
+  fit1<-try(switch(ligacao,
+                logit = glm(modelo, family=binomial(logit)),
+                probit = glm(modelo, family=binomial(link=probit)),
+                cauchit = glm(modelo, family=binomial(link=cauchit)),
+                log = glm(modelo, family=binomial(link=log)),
+                cloglog = glm(modelo, family=binomial(link=cloglog)),
+                stop("Link não reconhecido")), silent = T)
+  summary(fit1)
+  
+  aux<-sum(class(fit1) != "try-error")
+  if(step=="JAQ")
+  {
+    fit<-try(stepJAQ(fit1, trace = 0), silent = T)
+  }else{
+    fit<-try(stepAIC(fit1, trace = 0), silent = T)
+
+  }
+  aux2<-sum(class(fit) != "try-error")
+  if( aux!=0  && aux2!=0 )
+  {
+    fit.model<-fit
+  }else{
+     fit.model<-0
+  }
+  return(fit.model)
+}
+
+ResultadosBinom<-function(dados, modelo, ligacao, tipo, alfa=0.05, step="AIC")
+{
+  n<-nrow(dados)
+  familia<-paste0("Binomial-Link(",ligacao,")")
+  print(familia)
+  fits<-selecaoModeloBinomial(dados, modelo, ligacao, step)
+  if(is.numeric(fits))
+  {
+    bic<-NA
+    qualidade<-"Não Rodou"
+    modelo.s<-"-----"
+
+  }else{
+         bic<-as.numeric(round(AIC(fits,k=log(n)),6))
+         modelo.s<-deparse(formula(fits))
+         teste<-try(envelope(fits,tipo), silent=T)
+         aux<-sum(class(teste) != "try-error")
+        if(aux==0)
+        {
+            qualidade<-"Não Rodou"
+       }else{
+              qualidade<-teste[[1]]
+            }
+  }
+  return(data.frame(Family=familia,
+                      QQplot=qualidade,
+                      BIC=bic,
+                      Modelo=modelo.s))
+  
+}
+modelo<-cbind(numGerminaram, numFrac) ~ temp + umidade + tempGerm + umidade:temp + tempGerm:umidade + temp:tempGerm
+binom<-rbind(
+ResultadosBinom(sementes, modelo, ligacao = "logit", tipo ="envel_bino_logit"),
+ResultadosBinom(sementes, modelo, ligacao = "cauchit", tipo ="envel_bino_cauchit"),
+ResultadosBinom(sementes, modelo, ligacao = "log", tipo ="envel_bino_log"),
+ResultadosBinom(sementes, modelo, ligacao = "probit", tipo ="envel_bino_probit"),
+ResultadosBinom(sementes, modelo, ligacao = "cloglog", tipo ="envel_bino_cloglog")
+)
+
+binom |>
+  arrange(BIC) |>
+  knitr::kable(caption = "Melhor modelo", format ="pipe")
+
+```
+Nem o stepAIC nem o stepJAQ rodaram para a ligação log, pois a função glm não roda com a fórmula: cbind(numGerminaram, numFrac) ~ temp + umidade.
+
+O modelo selecionado foi o Binomial-Link(logit) por ser mais interpretável, não tem muita diferença no BIC dele para o de melhor BIC.
+
+NÚMERO DE SEMENTES QUE GERMINARAM ~ TEMP + UMIDADE + TEMPGERM + TEMP:UMIDADE
+
+## Teste de adequação da função de ligação
+```{r}
+modelo<-cbind(numGerminaram, numFrac) ~ temp + umidade + tempGerm + temp:umidade
+fit.model <- glm(modelo	 , family=binomial(link=logit))
+pl2 <- predict(fit.model)^2 
+fit.model2<-glm(update.formula(modelo,~ . + pl2), family=binomial(link=logit))
+testef(fit.model,fit.model2) # fit.model(H0: pl2 não significativa) #H1: pl2 é significativa
+```
+Não temos evidências para rejeitar $H_0$, a função de ligação "logit" é adequada para o modelo.
+
+## Resíduos e Diagnóstico
+```{r}
+modelo<-cbind(numGerminaram, numFrac) ~ temp + umidade + tempGerm + temp:umidade
+fit.model <- glm(modelo	 , family=binomial(link=logit))
+
+residuos<-function(fit.model, dados)
+{
+
+  X <- model.matrix(fit.model)
+  V <- fitted(fit.model)  # no Binomial, sao as proporcoes estimadas
+  Vm <- diag(V)
+  w <- fit.model$weights  # vetor de pesos
+  W <- diag(w)
+  H1 <- solve(t(X)%*%W%*%X)
+  H <- sqrt(W)%*%X%*%H1%*%t(X)%*%sqrt(W)
+  hii <- diag(H)  # vetor diagonal de H
+
+
+  # Resíduos
+  rD <- resid(fit.model, type= "deviance")
+  fi<-summary(fit.model)$dispersion
+  tD <- rD*sqrt(fi/(1-hii))   # residuo deviance padronizado
+  rp1 <- resid(fit.model, type= "pearson")
+  rP <- as.numeric(sqrt(fi)*rp1)
+  tS <- rP/sqrt(V*(1 - hii))  # Residuo padronizado
+  
+  # LDi
+  LD = hii*(tS^2)/(1-hii) # pode falhar de pi_i<0.1 ou pi_i>0.9. Neste caso, fazer  Ldi x pi_i
+  plot(tD, main="Resíduo")
+  plot(V,tD, main="Resíduo x Ajustado", xlab="Ajustado")
+  return(list(tD=tD, tS=tS, hii=hii, V=V, LD=LD))
+}
+
+resul.resd<-residuos(fit.model)
+
+
+
+```
+O modelo não foi validado, observa-se um padrão de funil no gráfico dos valores preditos pelo resíduo. O presusposto de homocedasticidade não foi atendido. 
+
+
+# 15.
+
+```{r}
+suppressMessages(mat <- read_table("dados/lista3/matched.txt", 
+    col_names = FALSE))
+
+colnames(mat[3:6])<-c("idade","")
+
+```
+
+# 16.
+
+```{r}
+suppressMessages(morgan <- read_table("dados/lista3/morgan.txt", 
+    col_names = FALSE))
+colnames(morgan)<-c("concentracao","dose","expostos","mortos")
+morgan$concentracao<-as.factor(morgan$concentracao)
+
+```
+
+## Análise Exploratória
+
+```{r}
+suppressMessages(attach(morgan))
+plot(mortos~dose, pch=19)
+boxplot(mortos~concentracao, pch=19, col=cores)
+
+```
+A concentração R parece ser menos tóxica do que as outras.
+
+## Seleção
+```{r, warning=FALSE}
+n<-nrow(morgan)
+numFrac<-expostos-mortos
+modelo<-cbind(mortos, numFrac) ~ dose + concentracao
+binom<-rbind(
+ResultadosBinom(morgan, modelo, ligacao = "logit", tipo ="envel_bino_logit"),
+ResultadosBinom(morgan, modelo, ligacao = "cauchit", tipo ="envel_bino_cauchit"),
+ResultadosBinom(morgan, modelo, ligacao = "log", tipo ="envel_bino_log"),
+ResultadosBinom(morgan, modelo, ligacao = "probit", tipo ="envel_bino_probit"),
+ResultadosBinom(morgan, modelo, ligacao = "cloglog", tipo ="envel_bino_cloglog")
+)
+
+binom |>
+  arrange(BIC, desc=T) |>
+  knitr::kable(caption = "Melhor modelo", format ="pipe")
+
+
+```
+O modelo com o menor BIC foi o cbind(mortos, numFrac) ~ dose + concentracao com ligação **cloglog**.
+
+## Teste de adequação da função de ligação
+```{r}
+modelo<- cbind(mortos, numFrac) ~ dose + concentracao
+fit.model <- glm(modelo	 , family=binomial(link=cloglog))
+pl2 <- predict(fit.model)^2 
+fit.model2<-glm(update.formula(modelo,~ . + pl2), family=binomial(link=cloglog))
+testef(fit.model,fit.model2) # fit.model(H0: pl2 não significativa) #H1: pl2 é significativa
+```
+Não temos evidências para rejeitar a hipótese nula, ou seja, a funçã de ligação probit é adequada.
+
+
+## Resíduos e Diagnóstico
+```{r}
+modelo<-cbind(mortos, numFrac) ~ dose + concentracao
+fit.model <- glm(modelo	 , family=binomial(link="cloglog"))
+
+resul.resd<-residuos(fit.model)
+plot(resul.resd$tD~dose, ylab="tD" , main="Resíduo x dose")
+```
+Não parece haver nenhum padrão. Podemos seguir para o dignóstico.
+
+```{r}
+plot(resul.resd$hii, ylab="hii")
+```
+Não há pontos de alavanca.
+
+```{r}
+plot(resul.resd$LD)
+```
+A observação 6 parece influente.
+```{r}
+morgan[6,]
+summary(dose)
+summary(mortos)
+```
+
+A observação em questão está no primeiro quartil das variáveis resposta e dose.
+
+
+
+# 19.
