@@ -1,0 +1,21 @@
+
+    11        baixo          21             98
+    11        baixo          42             96
+    11        baixo          62             62
+    11        medio          21             94
+    11        medio          42             79
+    11        medio          62              3
+    11        alto           21             92
+    11        alto           42             41
+    11        alto           62              1
+    21        baixo          21             94
+    21        baixo          42             93
+    21        baixo          62             65
+    21        medio          21             94
+    21        medio          42             71
+    21        medio          62              2
+    21        alto           21             91
+    21        alto           42             30
+    21        alto           62              1
+
+
