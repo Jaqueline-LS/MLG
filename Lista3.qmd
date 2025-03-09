@@ -21,6 +21,10 @@ rm(list = ls(all = TRUE))
 suppressMessages(library("dplyr"))
 suppressMessages(library("MASS"))
 suppressMessages(library("readr"))
+suppressMessages(library("ggplot2"))
+suppressMessages(library("tidyverse"))
+
+
 source("MLG/Funcoes/StepBackwardF.R")
 source('MLG/Funcoes/envelope.r')
 
@@ -28,40 +32,7 @@ op<-par()
 par<-par(pch=19)
 cores<-c("#BAF3DE","#C9E69E","#FFC29A","#FF9B95")
 
-```
-
-
-# 8.
-
-```{r}
-suppressMessages(sementes <- read_table("dados/lista3/sementes.txt", 
-    col_names = FALSE))
-colnames(sementes)<-c("tempGerm","umidade","temp","numGerminaram")
-sementes$tempGerm<-as.factor(sementes$tempGerm)
-sementes$umidade<-as.factor(sementes$umidade)
-sementes$temp<-as.factor(sementes$temp)
-```
-
-## Análise Exploratória
-
-```{r}
-suppressMessages(attach(sementes))
-
-boxplot(numGerminaram~temp, col=cores, xlab="Nível de temperatura(°C)", ylab=c("Número de sementes germinadas"))
-
-boxplot(numGerminaram~umidade, col=cores, xlab="Nível de temperatura(°C)", ylab=c("Número de sementes germinadas"))
-
-
-
-```
-
-## Seleção do modelo
-
-```{r, warning=FALSE}
-
-n<-nrow(sementes)
-numFrac<-100-numGerminaram
-
+# FUNCOES
 selecaoModeloBinomial<-function(dados, modelo, ligacao, step="AIC")
 {
   n<-nrow(dados)
@@ -122,6 +93,75 @@ ResultadosBinom<-function(dados, modelo, ligacao, tipo, alfa=0.05, step="AIC")
                       Modelo=modelo.s))
   
 }
+
+
+residuos<-function(fit.model, dados)
+{
+
+  X <- model.matrix(fit.model)
+  V <- fitted(fit.model)  # no Binomial, sao as proporcoes estimadas
+  Vm <- diag(V)
+  w <- fit.model$weights  # vetor de pesos
+  W <- diag(w)
+  H1 <- solve(t(X)%*%W%*%X)
+  H <- sqrt(W)%*%X%*%H1%*%t(X)%*%sqrt(W)
+  hii <- diag(H)  # vetor diagonal de H
+
+
+  # Resíduos
+  rD <- resid(fit.model, type= "deviance")
+  fi<-summary(fit.model)$dispersion
+  tD <- rD*sqrt(fi/(1-hii))   # residuo deviance padronizado
+  rp1 <- resid(fit.model, type= "pearson")
+  rP <- as.numeric(sqrt(fi)*rp1)
+  tS <- rP/sqrt(V*(1 - hii))  # Residuo padronizado
+  
+  # LDi
+  LD = hii*(tS^2)/(1-hii) # pode falhar de pi_i<0.1 ou pi_i>0.9. Neste caso, fazer  Ldi x pi_i
+  plot(tD, main="Resíduo")
+  plot(V,tD, main="Resíduo x Ajustado", xlab="Ajustado")
+  return(list(tD=tD, tS=tS, hii=hii, V=V, LD=LD))
+}
+
+```
+
+
+# 8.
+
+```{r}
+suppressMessages(sementes <- read_table("dados/lista3/sementes.txt", 
+    col_names = FALSE))
+colnames(sementes)<-c("tempGerm","umidade","temp","numGerminaram")
+sementes$tempGerm<-as.factor(sementes$tempGerm)
+sementes$umidade<-as.factor(sementes$umidade)
+sementes$temp<-as.factor(sementes$temp)
+
+
+
+
+```
+
+## Análise Exploratória
+
+```{r}
+suppressMessages(attach(sementes))
+
+boxplot(numGerminaram~temp, col=cores, xlab="Nível de temperatura(°C)", ylab=c("Número de sementes germinadas"))
+
+boxplot(numGerminaram~umidade, col=cores, xlab="Nível de temperatura(°C)", ylab=c("Número de sementes germinadas"))
+
+
+
+```
+
+## Seleção do modelo
+
+```{r, warning=FALSE}
+
+n<-nrow(sementes)
+numFrac<-100-numGerminaram
+
+
 modelo<-cbind(numGerminaram, numFrac) ~ temp + umidade + tempGerm + umidade:temp + tempGerm:umidade + temp:tempGerm
 binom<-rbind(
 ResultadosBinom(sementes, modelo, ligacao = "logit", tipo ="envel_bino_logit"),
@@ -157,34 +197,6 @@ Não temos evidências para rejeitar $H_0$, a função de ligação "logit" é a
 modelo<-cbind(numGerminaram, numFrac) ~ temp + umidade + tempGerm + temp:umidade
 fit.model <- glm(modelo	 , family=binomial(link=logit))
 
-residuos<-function(fit.model, dados)
-{
-
-  X <- model.matrix(fit.model)
-  V <- fitted(fit.model)  # no Binomial, sao as proporcoes estimadas
-  Vm <- diag(V)
-  w <- fit.model$weights  # vetor de pesos
-  W <- diag(w)
-  H1 <- solve(t(X)%*%W%*%X)
-  H <- sqrt(W)%*%X%*%H1%*%t(X)%*%sqrt(W)
-  hii <- diag(H)  # vetor diagonal de H
-
-
-  # Resíduos
-  rD <- resid(fit.model, type= "deviance")
-  fi<-summary(fit.model)$dispersion
-  tD <- rD*sqrt(fi/(1-hii))   # residuo deviance padronizado
-  rp1 <- resid(fit.model, type= "pearson")
-  rP <- as.numeric(sqrt(fi)*rp1)
-  tS <- rP/sqrt(V*(1 - hii))  # Residuo padronizado
-  
-  # LDi
-  LD = hii*(tS^2)/(1-hii) # pode falhar de pi_i<0.1 ou pi_i>0.9. Neste caso, fazer  Ldi x pi_i
-  plot(tD, main="Resíduo")
-  plot(V,tD, main="Resíduo x Ajustado", xlab="Ajustado")
-  return(list(tD=tD, tS=tS, hii=hii, V=V, LD=LD))
-}
-
 resul.resd<-residuos(fit.model)
 
 
@@ -195,17 +207,170 @@ O modelo não foi validado, observa-se um padrão de funil no gráfico dos valor
 
 # 15.
 
+## Análise Exploratória
+Descrição das variáveis:
+
+* Stratum (STR): Identifica o estrato que pertence. Os códigos variam de 1 a 50.
+
+* Observation within Stratum (OBS): Identifica a observação dentro de cada estrato. O código 1 representa um caso, e os códigos 2 a 4 representam controles.
+
+* Age at Interview (AGMT): Idade do indivíduo no momento da entrevista. O código 1 representa um caso, e 0 representa um controle.
+
+* Final Diagnosis (FNDX): Diagnóstico final. O código 1 representa um caso, e 0 representa um controle.
+
+* Highest Grade in School (HIGD): O nível mais alto de escolaridade alcançado. Os códigos variam de 0 (nenhum) a 5 (doutorado).
+
+* Degree (DEG): Grau acadêmico obtido. Os códigos variam de 0 (nenhum) a 5 (doutorado).
+
+* Regular Medical Check-ups (CHK): Indica se o indivíduo faz check-ups médicos regulares. O código 1 representa "Sim" e 2 representa "Não".
+
+* Age at First Pregnancy (AGP1): Idade da primeira gravidez, em anos.
+
+* Age at Menarche (AGMN): Idade da menarca (primeira menstruação), em anos.
+
+* No. of Stillbirths, Miscarriages etc. (NLV): Número de natimortos, abortos espontâneos, etc. Os códigos variam de 0 a 7.
+
+* Number of Live Births (LIV): Número de nascidos vivos. Os códigos variam de 0 a 11.
+
+* Weight of the Subject At Interview (WT): Peso do indivíduo no momento da entrevista, em libras.
+
+* Age at Last Menstrual Period (AGLP): Idade da última menstruação, em anos.
+
+* Marital Status (MST): Estado civil. Os códigos são: 1 = Casada, 2 = Divorciada, 3 = Separada, 4 = Viúva, 5 = Nunca casada.
+
 ```{r}
 suppressMessages(mat <- read_table("dados/lista3/matched.txt", 
     col_names = FALSE))
 
-colnames(mat[3:6])<-c("idade","")
+colnames(mat)<-c("STR","OBS","AGMT",
+                      "FNDX",
+                      "HIGD","DEG","CHK","AGP1",
+                      "AGMN","NLV","LIV","WT",
+                      "AGLP","MST")
+mat<- mat|>
+  drop_na()
+
+suppressMessages(attach(mat))
+boxplot(NLV~FNDX, col=cores)
+```
+
+
+```{r}
+boxplot(WT~FNDX, col=cores)
+
+boxplot(AGP1~FNDX, col=cores)
+```
+
+
+```{r}
+boxplot(LIV~FNDX, col=cores)
+```
+As mulheres que tiveram o diagnóstico positivo aparentar ter tido a primeira gravidez mais tarde e mais filhos nascidos vivos.
+
+```{r}
+boxplot(NLV~FNDX, col=cores)
+
+boxplot(AGLP~FNDX, col=cores)
+
+boxplot(HIGD~FNDX, col=cores)
+
+
+prop.table(table(DEG,FNDX),margin = 1)
+```
+Não parece ter associação entre o diagnóstico e a escolaridade.
+
+
+## Seleção
+```{r, warning=FALSE}
+n<-nrow(mat)
+modelo<-FNDX~AGMT+HIGD+DEG+CHK+AGP1+AGMN+NLV+LIV+WT+AGLP+MST
+
+binom<-rbind(
+ResultadosBinom(mat, modelo, ligacao = "logit", tipo ="envel_bino_logit"),
+ResultadosBinom(mat, modelo, ligacao = "cauchit", tipo ="envel_bino_cauchit"),
+ResultadosBinom(mat, modelo, ligacao = "probit", tipo ="envel_bino_probit"),
+ResultadosBinom(mat, modelo, ligacao = "cloglog", tipo ="envel_bino_cloglog")
+)
+
+ResultadosBinom(mat, modelo, ligacao = "logit", tipo ="envel_bino_logit",step="JAQ")
+
+binom2<-rbind(
+ResultadosBinom(mat, modelo, ligacao = "logit", tipo ="envel_bino_logit",step="JAQ"),
+ResultadosBinom(mat, modelo, ligacao = "cauchit", tipo ="envel_bino_cauchit",step="JAQ"),
+ResultadosBinom(mat, modelo, ligacao = "probit", tipo ="envel_bino_probit",step="JAQ"),
+ResultadosBinom(mat, modelo, ligacao = "cloglog", tipo ="envel_bino_cloglog",step="JAQ")
+)
+
+binom |>
+  arrange(BIC, desc=T) |>
+  knitr::kable(caption = "Melhor modelo - stepAIC", format ="pipe")
+
+
+binom2 |>
+  arrange(BIC, desc=T) |>
+  knitr::kable(caption = "Melhor modelo - stepJAQ", format ="pipe")
+
 
 ```
+O modelo selecionado foi o com a ligação cauchit, FNDX ~ CHK + AGMN + LIV + WT + AGLP.
+
+## Teste de adequação da função de ligação
+```{r}
+modelo<-FNDX ~ CHK + AGMN + LIV + WT + AGLP
+fit.model <- glm(modelo,family=binomial(link=cauchit))
+pl2 <- predict(fit.model)^2 
+fit.model2<-glm(update.formula(modelo,~ . + pl2), family=binomial(link=cauchit))
+testef(fit.model,fit.model2) # fit.model(H0: pl2 não significativa) #H1: pl2 é significativa
+```
+Não temos evidências para rejeitar $H_0$, a função de ligação "cauchit" é adequada para o modelo.
+
+## Resíduos e Diagnóstico
+```{r}
+modelo<-FNDX ~ CHK + AGMN + LIV + WT + AGLP
+fit.model <- glm(modelo	 , family=binomial(link=logit))
+
+resul.resd<-residuos(fit.model) 
+
+```
+O resíduo pelo valor ajustado não está bom, parece ter um padrão. Porém, vamos seguir com a análise de diagnóstico.
+
+```{r}
+plot(resul.resd$tD~WT)
+plot(resul.resd$tD~AGLP)
+```
+
+```{r}
+plot(resul.resd$hii, ylab="hii")
+```
+A observação 60 é a com maior alavanca.
+```{r}
+mat[60,c(4,7,9,11,12,13)]
+summary(AGMN)
+summary(LIV)
+summary(WT)
+summary(AGLP)
+
+```
+Essa observação se refere a mulher entrevistada que teve o maior número de filhos nascidos vivos. 
+```{r}
+plot(resul.resd$LD)
+```
+A observação que mais influencia na verossimilhança é a 19.
+```{r}
+mat[19,c(4,7,9,11,12,13)]
+summary(AGMN)
+summary(LIV)
+summary(WT)
+summary(AGLP)
+```
+Essa observação se refere a mulher entrevistada que teve a idade da menarca menor.
+
+
+
 
 # 16.
 
-```{r}
+```{r, warning=FALSE}
 suppressMessages(morgan <- read_table("dados/lista3/morgan.txt", 
     col_names = FALSE))
 colnames(morgan)<-c("concentracao","dose","expostos","mortos")
@@ -217,8 +382,12 @@ morgan$concentracao<-as.factor(morgan$concentracao)
 
 ```{r}
 suppressMessages(attach(morgan))
-plot(mortos~dose, pch=19)
-boxplot(mortos~concentracao, pch=19, col=cores)
+prop.mortos<-c(mortos/expostos)
+plot(prop.mortos~dose, pch=19, ylab = "Proporção de expostos mortos")
+```
+
+```{r}
+boxplot(prop.mortos~concentracao, pch=19, col=cores)
 
 ```
 A concentração R parece ser menos tóxica do que as outras.
@@ -227,37 +396,50 @@ A concentração R parece ser menos tóxica do que as outras.
 ```{r, warning=FALSE}
 n<-nrow(morgan)
 numFrac<-expostos-mortos
-modelo<-cbind(mortos, numFrac) ~ dose + concentracao
+modelo<-cbind(mortos, numFrac) ~ dose + concentracao + dose:concentracao
+
 binom<-rbind(
 ResultadosBinom(morgan, modelo, ligacao = "logit", tipo ="envel_bino_logit"),
 ResultadosBinom(morgan, modelo, ligacao = "cauchit", tipo ="envel_bino_cauchit"),
-ResultadosBinom(morgan, modelo, ligacao = "log", tipo ="envel_bino_log"),
 ResultadosBinom(morgan, modelo, ligacao = "probit", tipo ="envel_bino_probit"),
 ResultadosBinom(morgan, modelo, ligacao = "cloglog", tipo ="envel_bino_cloglog")
 )
 
+
+binom2<-rbind(
+ResultadosBinom(morgan, modelo, ligacao = "logit", tipo ="envel_bino_logit",step="JAQ"),
+ResultadosBinom(morgan, modelo, ligacao = "cauchit", tipo ="envel_bino_cauchit",step="JAQ"),
+ResultadosBinom(morgan, modelo, ligacao = "probit", tipo ="envel_bino_probit",step="JAQ"),
+ResultadosBinom(morgan, modelo, ligacao = "cloglog", tipo ="envel_bino_cloglog",step="JAQ")
+)
+
 binom |>
   arrange(BIC, desc=T) |>
-  knitr::kable(caption = "Melhor modelo", format ="pipe")
+  knitr::kable(caption = "Melhor modelo - stepAIC", format ="pipe")
+
+
+binom2 |>
+  arrange(BIC, desc=T) |>
+  knitr::kable(caption = "Melhor modelo - stepJAQ", format ="pipe")
 
 
 ```
-O modelo com o menor BIC foi o cbind(mortos, numFrac) ~ dose + concentracao com ligação **cloglog**.
+O modelo com o menor BIC foi o cbind(mortos, numFrac) ~ dose + concentracao + dose:concentracao com ligação **cloglog**.
 
 ## Teste de adequação da função de ligação
 ```{r}
-modelo<- cbind(mortos, numFrac) ~ dose + concentracao
+modelo<- cbind(mortos, numFrac) ~ dose + concentracao + dose:concentracao
 fit.model <- glm(modelo	 , family=binomial(link=cloglog))
 pl2 <- predict(fit.model)^2 
 fit.model2<-glm(update.formula(modelo,~ . + pl2), family=binomial(link=cloglog))
 testef(fit.model,fit.model2) # fit.model(H0: pl2 não significativa) #H1: pl2 é significativa
 ```
-Não temos evidências para rejeitar a hipótese nula, ou seja, a funçã de ligação probit é adequada.
+Não temos evidências para rejeitar a hipótese nula, ou seja, a função de ligação cloglog é adequada.
 
 
 ## Resíduos e Diagnóstico
 ```{r}
-modelo<-cbind(mortos, numFrac) ~ dose + concentracao
+modelo<-cbind(mortos, numFrac) ~ dose + concentracao + dose:concentracao
 fit.model <- glm(modelo	 , family=binomial(link="cloglog"))
 
 resul.resd<-residuos(fit.model)
@@ -279,9 +461,308 @@ morgan[6,]
 summary(dose)
 summary(mortos)
 ```
-
 A observação em questão está no primeiro quartil das variáveis resposta e dose.
 
 
 
-# 19.
+# 19. 
+
+```{r}
+suppressMessages(gestantes <- read_table("dados/lista3/gestantes.txt", 
+    col_names = FALSE))
+colnames(gestantes)<-c("idade","n_cigarro","duracao","morte","sobrev")
+gestantes$idade<-factor(gestantes$idade,levels = c(0,1),labels=c("<30","30+"))
+gestantes$duracao<-factor(gestantes$duracao,levels = c(0,1),labels=c("<=260",">260"))
+gestantes$n_cigarro<-factor(gestantes$n_cigarro,levels = c(0,1),labels=c("<5","5+"))
+
+gestantes<-gestantes |>
+  mutate(prop=morte/(morte+sobrev))
+suppressMessages(attach(gestantes))
+
+```
+## Análise Exploratória
+```{r}
+boxplot(prop~idade, col=cores[4])
+```
+A mediana do número de crianças que não sobreviveram das gestantes fumantes com idade maior que 30 parece maior do que das gestantes com menos idade.
+
+```{r}
+boxplot(prop~n_cigarro, col=cores[4])
+```
+Temos algum indício de que o consumo maior de cigarros aumenta as chances de não sobrevivência da criança. 
+
+```{r}
+boxplot(prop~duracao, col=cores[4])
+```
+É bem claro que a mediana da proporção de crianças não sobreviventes é maior com a duração da gestação menor que 260. 
+
+
+## Seleção
+```{r, warning=FALSE}
+n<-nrow(gestantes)
+modelo<-cbind(morte, sobrev) ~ idade + duracao + n_cigarro + idade:duracao + idade:n_cigarro + n_cigarro:duracao
+
+binom<-rbind(
+ResultadosBinom(gestantes, modelo, ligacao = "logit", tipo ="envel_bino_logit"),
+ResultadosBinom(gestantes, modelo, ligacao = "cauchit", tipo ="envel_bino_cauchit"),
+ResultadosBinom(gestantes, modelo, ligacao = "probit", tipo ="envel_bino_probit"),
+ResultadosBinom(gestantes, modelo, ligacao = "cloglog", tipo ="envel_bino_cloglog")
+)
+
+
+binom2<-rbind(
+ResultadosBinom(gestantes, modelo, ligacao = "logit", tipo ="envel_bino_logit",step="JAQ"),
+ResultadosBinom(gestantes, modelo, ligacao = "cauchit", tipo ="envel_bino_cauchit",step="JAQ"),
+ResultadosBinom(gestantes, modelo, ligacao = "probit", tipo ="envel_bino_probit",step="JAQ"),
+ResultadosBinom(gestantes, modelo, ligacao = "cloglog", tipo ="envel_bino_cloglog",step="JAQ")
+)
+
+binom |>
+  arrange(BIC, desc=T) |>
+  knitr::kable(caption = "Melhor modelo - stepAIC", format ="pipe")
+
+
+binom2 |>
+  arrange(BIC, desc=T) |>
+  knitr::kable(caption = "Melhor modelo - stepJAQ", format ="pipe")
+
+
+```
+
+O modelo selecionado foi o com a ligação logit, pouca diferença no BIC.
+
+## Teste de adequação da função de ligação
+```{r}
+modelo<-cbind(morte, sobrev) ~ idade + duracao + n_cigarro
+fit.model <- glm(modelo	 , family=binomial(link=logit))
+pl2 <- predict(fit.model)^2 
+fit.model2<-glm(update.formula(modelo,~ . + pl2), family=binomial(link=logit))
+testef(fit.model,fit.model2) # fit.model(H0: pl2 não significativa) #H1: pl2 é significativa
+```
+Não temos evidências para rejeitar a hipótese nula, ou seja, a função de ligação cloglog é adequada.
+
+## Resíduos e Diagnóstico
+```{r}
+modelo<-cbind(morte, sobrev) ~ idade + duracao + n_cigarro
+fit.model <- glm(modelo,family=binomial(link="logit"))
+resul.resd<-residuos(fit.model)
+
+```
+Não parece ter nenhum padrão nos resíduos, modelo validado.
+
+```{r}
+plot(resul.resd$hii, ylab="hii")
+```
+Não há pontos de alavanca.
+
+```{r}
+plot(resul.resd$LD)
+```
+```{r}
+gestantes[4,]
+summary(prop.mortos)
+```
+A observação não é outlier na prop.morte.
+
+## Interpretação
+
+```{r}
+modelo<-cbind(morte, sobrev) ~ idade + duracao + n_cigarro
+fit.model <- glm(modelo,family=binomial(link="logit"))
+
+exp(coef(fit.model))
+```
+* A chance da criança não sobreviver se a idade da gestante fumante for maior que 30 anos aumenta em aproximadamente 60% da chance de não sobreviver quando a gestante tem menos idade.
+
+* A chance da criança morrer dado que a duração da gestação é maior que 260 reduz em 96% da chance quando a gestação tem duração menor.
+
+
+* A chance da criança não sobreviver quando a gestante fuma mais de 5 cigarros por dia aumenta em 52.6% da chance quando ela fuma menos.
+
+
+# 23. 
+
+```{r}
+suppressMessages( dengue <- read_table("dados/lista3/dengue.txt", 
+                                       col_names = FALSE,
+                                       col_types = cols(X5 = col_skip())))
+colnames(dengue)<-c("idade","nivel","setor","caso")
+dengue$nivel<-as.factor(dengue$nivel)
+dengue$setor<-as.factor(dengue$setor)
+dengue$caso<-as.factor(dengue$caso)
+
+```
+## Análise Exploratória
+```{r}
+suppressMessages(attach(dengue))
+boxplot(idade~caso, col=cores[2])
+```
+Aparentemente a idade das pessoas com dengue é um pouco maior.
+
+
+```{r}
+tabela<-table(nivel, caso)
+prop_caso_nivel <- prop.table(tabela, margin = 1)
+prop_caso_nivel
+```
+
+```{r}
+tabela<-table(setor, caso)
+prop_caso_setor <- prop.table(tabela, margin = 1)
+prop_caso_setor
+
+```
+O setor 2 da cidade pode ser um local com maior risco de dengue, a proporção de casos é parece ser maior.
+
+## Seleção
+
+```{r, warning=FALSE}
+n<-nrow(dengue)
+modelo<-caso ~ idade + nivel + setor + idade:nivel + idade:setor + nivel:setor
+
+
+binom<-rbind(
+ResultadosBinom(dengue, modelo, ligacao = "logit", tipo ="envel_bino_logit"),
+ResultadosBinom(dengue, modelo, ligacao = "cauchit", tipo ="envel_bino_cauchit"),
+ResultadosBinom(dengue, modelo, ligacao = "probit", tipo ="envel_bino_probit"),
+ResultadosBinom(dengue, modelo, ligacao = "cloglog", tipo ="envel_bino_cloglog")
+)
+
+
+binom2<-rbind(
+ResultadosBinom(dengue, modelo, ligacao = "logit", tipo ="envel_bino_logit",step="JAQ"),
+ResultadosBinom(dengue, modelo, ligacao = "cauchit", tipo ="envel_bino_cauchit",step="JAQ"),
+ResultadosBinom(dengue, modelo, ligacao = "probit", tipo ="envel_bino_probit",step="JAQ"),
+ResultadosBinom(dengue, modelo, ligacao = "cloglog", tipo ="envel_bino_cloglog",step="JAQ")
+)
+
+binom |>
+  arrange(BIC, desc=T) |>
+  knitr::kable(caption = "Melhor modelo - stepAIC", format ="pipe")
+
+
+binom2 |>
+  arrange(BIC, desc=T) |>
+  knitr::kable(caption = "Melhor modelo - stepJAQ", format ="pipe")
+
+
+```
+O modelo selecionado foi caso ~ idade + setor com a ligação **logit**.
+
+## Teste de adequação da função de ligação
+```{r}
+modelo<-caso ~ idade + setor 
+fit.model <- glm(modelo	 , family=binomial(link=logit))
+pl2 <- predict(fit.model)^2 
+fit.model2<-glm(update.formula(modelo,~ . + pl2), family=binomial(link=logit))
+testef(fit.model,fit.model2) # fit.model(H0: pl2 não significativa) #H1: pl2 é significativa
+```
+A função de ligação é adequada.
+
+## Resíduos e diagnóstico
+
+```{r}
+modelo<-caso ~ idade + setor 
+fit.model <- glm(modelo,family=binomial(link="logit"))
+resul.resd<-residuos(fit.model)
+plot(resul.resd$tD~idade)
+```
+O modelo não foi validado, os resíduos. Porém, vamos dar sequência com a análise de diagnóstico e interpretação do modelo.
+
+```{r}
+plot(resul.resd$hii)
+```
+```{r}
+dengue[196,]
+summary(idade)
+
+```
+A observação 196 é a com maior alavanca, ela possui uma idade que está perto da média e mora no setor 1 da cidade. 
+
+```{r}
+plot(resul.resd$LD)
+```
+
+```{r}
+dengue[c(14,162),]
+summary(idade)
+
+```
+As observações 14 e 162 são as mais influentes, elas possuem idades no primeiro quartil e são do setor 1 da cidade.
+
+## Interpretação
+
+```{r}
+exp(coef(fit.model))
+```
+* Como suspeitado pela análise exploratória uma pessoa moradora do setor 2 da cidade apresenta uma razão chances 3.26 vezes maior de ter caso de dengue que uma moradora do setor 1.
+
+* Para o incremento de uma unidade na idade a razão de chances de ter dengue aumenta em  aproximadamente 3%.
+
+# 25.
+
+```{r}
+suppressMessages(pulso <- read_table("dados/lista3/pulso.txt", 
+    col_names = FALSE))
+colnames(pulso)<-c("pulsacao","fuma","peso")
+pulso$pulsacao<-as.factor(pulso$pulsacao)
+pulso$fuma<-as.factor(pulso$fuma)
+
+```
+
+## Análise Exploratória
+
+```{r}
+suppressMessages(attach(pulso))
+  
+prop.table(table(fuma,pulsacao), margin=1)
+```
+```{r}
+boxplot(peso~pulsacao, col=cores[1])
+```
+## Seleção
+```{r, warning=FALSE}
+n<-nrow(pulso)
+modelo<-pulsacao~peso+fuma+peso:fuma
+
+binom<-rbind(
+ResultadosBinom(pulso, modelo, ligacao = "logit", tipo ="envel_bino_logit"),
+ResultadosBinom(pulso, modelo, ligacao = "cauchit", tipo ="envel_bino_cauchit"),
+ResultadosBinom(pulso, modelo, ligacao = "probit", tipo ="envel_bino_probit"),
+ResultadosBinom(pulso, modelo, ligacao = "cloglog", tipo ="envel_bino_cloglog")
+)
+
+
+binom |>
+  arrange(BIC, desc=T) |>
+  knitr::kable(caption = "Melhor modelo - stepAIC", format ="pipe")
+
+
+```
+
+Vamos escolher o modelo com ligação **logit**.
+
+
+## Teste de adequação da função de ligação
+```{r}
+modelo<-pulsacao ~ peso + fuma
+fit.model <- glm(modelo	 , family=binomial(link=logit))
+pl2 <- predict(fit.model)^2 
+fit.model2<-glm(update.formula(modelo,~ . + pl2), family=binomial(link=logit))
+testef(fit.model,fit.model2) # fit.model(H0: pl2 não significativa) #H1: pl2 é significativa
+```
+Não temos evidências para rejeitar a hipótese nula, ou seja, a função de ligação logit é adequada.
+
+## Resíduos e diagnóstico
+
+```{r}
+modelo<-pulsacao ~ peso + fuma
+fit.model <- glm(modelo,family=binomial(link="logit"))
+resul.resd<-residuos(fit.model)
+```
+
+O gráfico dos resíduos pelos valores ajustados apresenta uma tendência não linear.
+```{r}
+plot(resul.resd$tD~peso)
+```
+Os resíduos não estão bem comportados, o modelo não foi validado.

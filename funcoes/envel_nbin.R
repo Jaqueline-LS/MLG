@@ -1,38 +1,36 @@
-envel_bino_cloglog<-function(fit.model,alfa=0.05)
+envel_nbin<-function(fit.model,alfa=0.05)
 {
   par(mfrow=c(1,1))
   X <- model.matrix(fit.model)
   n <- nrow(X)
   p <- ncol(X)
-  w <- fit.model$weights
+  fi <- fit.model$theta
+  w <- fi*fitted(fit.model)/(fi + fitted(fit.model))
   W <- diag(w)
   H <- solve(t(X)%*%W%*%X)
   H <- sqrt(W)%*%X%*%H%*%t(X)%*%sqrt(W)
   h <- diag(H)
   td <- resid(fit.model,type="deviance")/sqrt(1-h)
+  fi <- fit.model$theta
   e <- matrix(0,n,100)
   #
-  for(ii in 1:100){
-    dif <- runif(n) - fitted(fit.model)
-    dif[dif >= 0 ] <- 0
-    dif[dif<0] <- 1
-    nresp <- dif
-    fit <- glm(nresp ~ X, family=binomial(link=cloglog))
+  for(i in 1:100){
+    resp <- rnegbin(n, fitted(fit.model),fi)
+    fit <- glm.nb(resp ~ X)
     w <- fit$weights
     W <- diag(w)
     H <- solve(t(X)%*%W%*%X)
     H <- sqrt(W)%*%X%*%H%*%t(X)%*%sqrt(W)
     h <- diag(H)
-    e[,ii] <- sort(resid(fit,type="deviance")/sqrt(1-h))
-  }
+    e[,i] <- sort(resid(fit,type="deviance")/sqrt(1-h))}
   #
   e1 <- numeric(n)
   e2 <- numeric(n)
   #
-  for(ii in 1:n){
-    eo <- sort(e[ii,])
-    e1[ii] <- (eo[2]+eo[3])/2
-    e2[ii] <- (eo[97]+eo[98])/2}
+  for(i in 1:n){
+    eo <- sort(e[i,])
+    e1[i] <- (eo[2]+eo[3])/2
+    e2[i] <- (eo[97]+eo[98])/2}
   #
   med <- apply(e,1,mean)
   faixa <- range(td,e1,e2)
@@ -46,7 +44,8 @@ envel_bino_cloglog<-function(fit.model,alfa=0.05)
   qqnorm(e2,axes=F,xlab="",ylab="", type="l",ylim=faixa,lty=1)
   par(new=T)
   qqnorm(med,axes=F,xlab="", ylab="", type="l",ylim=faixa,lty=2)
-  #---------------------------------------------------------------#      
+  #---------------------------------------------------------------#                      
+  
   plot_capturado<-recordPlot()
   ind <- numeric(n)
   ind <- sort(td)<sort(e1) | sort(td)>sort(e2)

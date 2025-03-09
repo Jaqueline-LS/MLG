@@ -1,0 +1,622 @@
+---
+title: "MODELOS LINEARES GENERALIZADOS (EST082)"
+subtitle: "LISTA 4 - Dados de contagem"
+lang: pt
+author: "Jaqueline Lamas da Silva"
+knitr:
+    opts_chunk: 
+      fig.align: 'center'
+format: 
+  html:
+    self-contained-math: true
+    embed-resources: true
+    code-fold: true
+toc: true
+editor: source
+---
+
+```{r, echo=FALSE, warning=FALSE}
+rm(list = ls(all = TRUE))
+suppressMessages(library("dplyr"))
+suppressMessages(library("MASS"))
+suppressMessages(library("readr"))
+suppressMessages(library("ggplot2"))
+suppressMessages(library("tidyverse"))
+
+
+source("MLG/Funcoes/StepBackwardF.R")
+source('MLG/Funcoes/envelope.r')
+
+
+op<-par()
+par<-par(pch=19)
+cores<-c("#BAF3DE","#C9E69E","#FFC29A","#FF9B95")
+
+# FUNCOES
+selecaoModeloPoisson<-function(dados, modelo, ligacao, step="AIC")
+{
+  n<-nrow(dados)
+  fit1<-try(switch(ligacao,
+                identity = glm(modelo, family=poisson(link=identity)),
+                raiz = glm(modelo, family=poisson(link=sqrt)),
+                log = glm(modelo, family=poisson(link=log)),
+                stop("Link não reconhecido")), silent = T)
+  summary(fit1)
+  
+  aux<-sum(class(fit1) != "try-error")
+  if(step=="JAQ")
+  {
+    fit<-try(stepJAQ(fit1, trace = 0), silent = T)
+  }else{
+    fit<-try(stepAIC(fit1, trace = 0), silent = T)
+
+  }
+  aux2<-sum(class(fit) != "try-error")
+  if( aux!=0  && aux2!=0 )
+  {
+    fit.model<-fit
+  }else{
+     fit.model<-0
+  }
+  return(fit.model)
+}
+
+ResultadosPois<-function(dados, modelo, ligacao, tipo, alfa=0.05, step="AIC")
+{
+  n<-nrow(dados)
+  familia<-paste0("Poisson-Link(",ligacao,")")
+  print(familia)
+  fits<-selecaoModeloPoisson(dados, modelo, ligacao, step)
+  if(is.numeric(fits))
+  {
+    bic<-NA
+    qualidade<-"Não Rodou"
+    modelo.s<-"-----"
+
+  }else{
+         bic<-as.numeric(round(AIC(fits,k=log(n)),6))
+         modelo.s<-deparse(formula(fits))
+         teste<-try(envelope(fits,tipo), silent=T)
+         aux<-sum(class(teste) != "try-error")
+        if(aux==0)
+        {
+            qualidade<-"Não Rodou"
+       }else{
+              qualidade<-teste[[1]]
+            }
+  }
+  return(data.frame(Family=familia,
+                      QQplot=qualidade,
+                      BIC=bic,
+                      Modelo=modelo.s))
+  
+}
+
+
+residuos<-function(fit.model, dados)
+{
+
+  fi <- 1
+  X <- model.matrix(fit.model) 
+  V <- fitted(fit.model)  # vetor de valores ajustados (model$fitted.values)
+  w <- fit.model$weights  # vetor de pesos
+  W <- diag(w)
+  H1 <- solve(t(X)%*%W%*%X)
+  H <- sqrt(W)%*%X%*%H1%*%t(X)%*%sqrt(W)
+  hii <- diag(H)  # vetor diagonal de H
+  
+  # Res?duos
+  rD <- resid(fit.model, type= "deviance")
+  tD <- rD*sqrt(fi/(1-hii))   # residuo deviance padronizado
+  rp1 <- resid(fit.model, type= "pearson")
+  rP <- as.numeric(sqrt(fi)*rp1)
+  tS <- rP/sqrt(V*(1 - hii))  # Residuo padronizado
+  # LDi
+  LD = hii*(tS^2)/(1-hii) 
+  plot(tD, main="Resíduo")
+  plot(V,tD, main="Resíduo x Ajustado", xlab="Ajustado")
+  return(list(tD=tD, tS=tS, hii=hii, V=V, LD=LD))
+}
+
+
+
+# FUNCOES
+selecaoModeloBN<-function(dados, modelo, ligacao, step="AIC")
+{
+  n<-nrow(dados)
+  fit1<-try(switch(ligacao,
+                identity = glm.nb(modelo),
+                raiz = glm.nb(modelo, link=sqrt),
+                log = glm.nb(modelo,link=log),
+                stop("Link não reconhecido")), silent = T)
+  summary(fit1)
+  
+  aux<-sum(class(fit1) != "try-error")
+  if(step=="JAQ")
+  {
+    fit<-try(stepJAQ(fit1, trace = 0), silent = T)
+  }else{
+    fit<-try(stepAIC(fit1, trace = 0), silent = T)
+
+  }
+  aux2<-sum(class(fit) != "try-error")
+  if( aux!=0  && aux2!=0 )
+  {
+    fit.model<-fit
+  }else{
+     fit.model<-0
+  }
+  return(fit.model)
+}
+
+ResultadosBN<-function(dados, modelo, ligacao, tipo, alfa=0.05, step="AIC")
+{
+  n<-nrow(dados)
+  familia<-paste0("Binomial Negativa - Link(",ligacao,")")
+  print(familia)
+  fits<-selecaoModeloBN(dados, modelo, ligacao, step)
+  if(is.numeric(fits))
+  {
+    bic<-NA
+    qualidade<-"Não Rodou"
+    modelo.s<-"-----"
+
+  }else{
+         bic<-as.numeric(round(AIC(fits,k=log(n)),6))
+         modelo.s<-deparse(formula(fits))
+         teste<-try(envelope(fits,tipo), silent=T)
+         aux<-sum(class(teste) != "try-error")
+        if(aux==0)
+        {
+            qualidade<-"Não Rodou"
+       }else{
+              qualidade<-teste[[1]]
+            }
+  }
+  return(data.frame(Family=familia,
+                      QQplot=qualidade,
+                      BIC=bic,
+                      Modelo=modelo.s))
+  
+}
+
+
+
+residuosBN<-function(fit.model, dados)
+{
+  fit<-fit.model
+  fi<-fit$theta
+  X <- model.matrix(fit) 
+  V <- fitted(fit)  # vetor de valores ajustados (model$fitted.values)
+  Vm <- diag(V) 
+  w <- fit$weights  # vetor de pesos
+  W <- diag(w)
+  H1 <- solve(t(X)%*%W%*%X)
+  H <- sqrt(W)%*%X%*%H1%*%t(X)%*%sqrt(W)
+  hii <- diag(H)  # vetor diagonal de H
+  
+  # Res?duos
+  rD <- resid(fit, type= "deviance")
+  tD <- rD*sqrt(fi/(1-hii))   # residuo deviance padronizado
+  rp1 <- resid(fit, type= "pearson")
+  rP <- as.numeric(sqrt(fi)*rp1)
+  tS <- rP/sqrt(V*(1 - hii))  # Residuo padronizado
+  # LDi
+  LD = hii*(tS^2)/(1-hii) 
+  plot(tD, main="Resíduo")
+  plot(V,tD, main="Resíduo x Ajustado", xlab="Ajustado")
+  return(list(tD=tD, tS=tS, hii=hii, V=V, LD=LD))
+}
+
+```
+
+# 5.
+
+* quedas (número de quedas no período);
+* intervenção (=0 educação somente, =1 educação e exercícios físicos);
+* sexo (=0 feminino, =1 masculino);
+* balanço (escore) ;
+* força (escore).
+
+```{r}
+suppressMessages(geriatra <- read_table("dados/lista4/geriatra.txt", col_names = FALSE))
+colnames(geriatra)<-c("quedas","intervencao","sexo","balanco","forca")
+geriatra$intervencao<-as.factor(geriatra$intervencao)
+geriatra$sexo<-as.factor(geriatra$sexo)
+
+```
+## Análise Exploratória
+
+```{r}
+suppressMessages(attach(geriatra))
+boxplot(quedas~sexo, col=cores[4])
+boxplot(quedas~intervencao, col=cores[4])
+```
+Pelo boxplot as mulheres parecem apresentar mais quedas do que os homens. Além disso, podemos ver indícios de diminuição na mediana das quedas para o grupo que recebeu a intervenção com exercícios físicos.
+
+```{r}
+plot(quedas~balanco, pch=19, col=cores[4])
+plot(quedas~forca, pch=19, col=cores[4])
+
+```
+## Seleção do modelo
+
+```{r, warning=FALSE}
+
+n<-nrow(geriatra)
+
+modelo<-quedas~intervencao + sexo + forca + balanco
+pois<-rbind(
+ResultadosPois(geriatra, modelo, ligacao = "log", tipo ="envel_pois_log"),
+ResultadosPois(geriatra, modelo, ligacao = "raiz", tipo ="envel_pois_raiz"),
+ResultadosPois(geriatra, modelo, ligacao = "identity", tipo ="envel_pois")
+)
+
+pois |>
+  arrange(BIC) |>
+  knitr::kable(caption = "Melhor modelo", format ="pipe")
+
+```
+
+## Teste de adequação da função de ligação
+```{r}
+modelo<-quedas~intervencao + sexo + forca + balanco
+fit.model <- glm(modelo	 , family=poisson(link=log))
+pl2 <- predict(fit.model)^2 
+fit.model2<-glm(update.formula(modelo,~ . + pl2), family=poisson(link=log))
+testef(fit.model,fit.model2) # fit.model(H0: pl2 não significativa) #H1: pl2 é significativa
+```
+Não temos evidências para rejeitar $H_0$, a função de ligação "log" é adequada para o modelo.
+
+## Resíduos e Diagnóstico
+```{r}
+modelo<-quedas~intervencao + forca + balanco
+fit.model <- glm(modelo, family=poisson(link=log))
+
+resul.resd<-residuos(fit.model)
+```
+```{r}
+plot(resul.resd$tD~balanco)
+plot(resul.resd$tD~forca)
+```
+Não foram identificados padrões nos resíduos, podemos seguir para a análise de diagnóstico.
+
+```{r}
+plot(resul.resd$hii)
+```
+```{r}
+plot(resul.resd$LD)
+# > identify(resul.resd$LD,tolerance=2)
+# [1] 37 42
+```
+```{r}
+geriatra[c(37,42),]
+summary(quedas)
+summary(forca)
+summary(balanco)
+```
+
+Uma delas possui o menor valor da variável balanco e a outra possui um dos menores valores de forca.
+
+## Interpretação
+```{r}
+modelo<-quedas~intervencao + forca + balanco
+fit.model <- glm(modelo,family=poisson(link="log"))
+exp(coef(fit.model))
+```
+* Os idosos que receberam a intervenção com exercícios diminuem o número médio das quedas em 66%.
+
+* Aumentando uma unidade de força aumenta-se em média 0.9% o número de quedas.
+
+* Aumentando uma unidade de balanço aumenta-se em média 0.96% o número de quedas.
+
+
+# 7.
+
+```{r}
+suppressMessages(rolos <- read_table("dados/lista4/rolos.txt", 
+                                     col_names = FALSE))
+colnames(rolos)<-c("comprimento","falhas")
+```
+
+## Análise Exploratória
+
+```{r}
+suppressMessages(attach(rolos))
+plot(falhas~comprimento, col=cores[2], pch=19)
+```
+## Seleção do modelo
+
+```{r, warning=FALSE}
+
+n<-nrow(rolos)
+
+modelo<-falhas~comprimento
+pois<-rbind(
+ResultadosPois(rolos, modelo, ligacao = "log", tipo ="envel_pois_log"),
+ResultadosPois(rolos, modelo, ligacao = "raiz", tipo ="envel_pois_raiz"),
+ResultadosPois(rolos, modelo, ligacao = "identity", tipo ="envel_pois")
+)
+
+pois |>
+  arrange(BIC) |>
+  knitr::kable(caption = "Melhor modelo - Poisson", format ="pipe")
+
+
+bn<-rbind(
+ResultadosBN(rolos, modelo, ligacao = "log", tipo ="envel_nbin_log"),
+ResultadosBN(rolos, modelo, ligacao = "raiz", tipo ="envel_nbin_raiz"),
+ResultadosBN(rolos, modelo, ligacao = "identity", tipo ="envel_nbin")
+)
+
+bn |>
+  arrange(BIC) |>
+  knitr::kable(caption = "Melhor modelo - Binomial Negativa", format ="pipe")
+
+
+```
+O modelo selecionado foi o da família binomial negativa com ligação **log**.
+
+## Teste de adequação da função de ligação
+```{r}
+modelo<-falhas~comprimento
+fit.model <- glm.nb(modelo,link=log)
+pl2 <- predict(fit.model)^2 
+fit.model2<-glm.nb(update.formula(modelo,~ . + pl2),link=log)
+summary(fit.model2)
+testef(fit.model,fit.model2) # fit.model(H0: pl2 não significativa) #H1: pl2 é significativa
+```
+A função de ligação é adequada.
+
+
+## Resíduos e Diagnóstico
+```{r}
+modelo<-falhas~comprimento
+fit.model <- glm.nb(modelo,link=log)
+
+resul.resd<-residuosBN(fit.model)
+```
+```{r}
+plot(resul.resd$tD~comprimento)
+```
+Não tem nenhum padrão nos resíduos. Modelo validado.
+
+```{r}
+plot(resul.resd$hii)
+```
+```{r}
+rolos[30,]
+summary(comprimento)
+summary(falhas)
+```
+A observação 30 é a que apresenta maior alavanca, ela se refere à peça de tecido com maior comprimento.
+
+```{r}
+plot(resul.resd$LD)
+```
+```{r}
+summary(comprimento)
+summary(falhas)
+rolos[20,]
+```
+
+## Interpretação
+
+```{r}
+modelo<-falhas~comprimento
+fit.model <- glm.nb(modelo,link="log")
+exp(coef(fit.model))
+```
+Com o aumento de uma unidade no comprimento do tecido espera-se que o número médio de falhas aumente em 0.2%.
+
+
+# 15.
+
+* hábito de nadar (ocasional ou frequente);
+* local onde costuma nadar (piscina ou praia);
+* faixa etária (15-19, 20-25 ou 25-29);
+* sexo (masculino ou feminino);
+* número de infecções de ouvido diagnosticadas pelo próprio recruta.
+
+```{r}
+suppressMessages(recrutas <- read_table("dados/lista4/recrutas.txt", 
+                                        col_names = FALSE))
+colnames(recrutas)<-c("nadar","local","idade","sexo","infeccoes")
+recrutas$sexo<-as.factor(recrutas$sexo)
+recrutas$nadar<-as.factor(recrutas$nadar)
+recrutas$local<-as.factor(recrutas$local)
+recrutas$idade<-as.factor(recrutas$idade)
+
+```
+## Análise Exploratória
+```{r}
+suppressMessages(attach(recrutas))
+boxplot(infeccoes~nadar, col=cores[1])
+```
+Parece que quem nada ocasionalmente tem mais chances de desenvolver infecções.
+
+
+```{r}
+boxplot(infeccoes~local, col=cores[1])
+```
+Aparentemente nadar na piscina apresenta mais riscos para infecção de ouvido. 
+```{r}
+boxplot(infeccoes~sexo, col=cores[1])
+
+```
+```{r}
+boxplot(infeccoes~idade, col=cores[1])
+
+```
+Idade e sexo não parecem estar associadadas ao número de infecções.
+
+## Seleção do modelo
+
+```{r, warning=FALSE}
+n<-nrow(recrutas)
+
+modelo<-infeccoes~idade+sexo+local+nadar
+pois<-rbind(
+ResultadosPois(recrutas, modelo, ligacao = "log", tipo ="envel_pois_log"),
+ResultadosPois(recrutas, modelo, ligacao = "raiz", tipo ="envel_pois_raiz"),
+ResultadosPois(recrutas, modelo, ligacao = "identity", tipo ="envel_pois")
+)
+
+pois |>
+  arrange(BIC) |>
+  knitr::kable(caption = "Melhor modelo - Poisson", format ="pipe")
+
+
+bn<-rbind(
+ResultadosBN(recrutas, modelo, ligacao = "log", tipo ="envel_nbin_log"),
+ResultadosBN(recrutas, modelo, ligacao = "raiz", tipo ="envel_nbin_raiz"),
+ResultadosBN(recrutas, modelo, ligacao = "identity", tipo ="envel_nbin")
+)
+
+bn |>
+  arrange(BIC) |>
+  knitr::kable(caption = "Melhor modelo - Binomial Negativa", format ="pipe")
+
+```
+O modelo selecionado foi o da família Binomial Negativa com ligação identidade.
+
+## Teste de adequação da função de ligação
+```{r}
+modelo<-infeccoes ~ local + nadar
+fit.model <- glm.nb(modelo,link=identity)
+pl2 <- predict(fit.model)^2 
+fit.model2<-glm.nb(update.formula(modelo,~ . + pl2),link=identity)
+summary(fit.model2)
+testef(fit.model,fit.model2) # fit.m    odel(H0: pl2 não significativa) #H1: pl2 é significativa
+```
+A função de ligação é adequada.
+
+
+## Resíduos e Diagnóstico
+```{r}
+modelo<-infeccoes ~ local + nadar
+fit.model <- glm.nb(modelo,link=identity)
+resul.resd<-residuosBN(fit.model)
+```
+Os resíduos estão bem comportados, não foram identificados padrões.
+
+```{r}
+plot(resul.resd$hii)
+```
+```{r}
+plot(resul.resd$LD)
+```
+A observação 246 é a que exerce maior influência na verossimilhança.
+```{r}
+recrutas[246,]
+summary(infeccoes)
+```
+
+## Interpretação
+
+```{r}
+modelo<-infeccoes ~ local + nadar
+fit.model <- glm.nb(modelo,link=identity)
+coef(fit.model)
+```
+* Nadar na piscina comparado com nadar na praia aumenta em 0.54 unidades o número de infecções.
+
+* Nadar ocasionalmente comparado com nadar frequentemente aumenta em 0.71 unidades o número de infecções.
+
+# 20.
+
+```{r, warning=FALSE}
+suppressMessages(nitrofen <- read_table("dados/lista4/nitrofen.txt", 
+                       col_names = FALSE))
+
+colnames(nitrofen)<-c("dose","ovos")
+nitrofen<-nitrofen[-51,]
+nitrofen$dose<-as.factor(nitrofen$dose)
+
+```
+## Análise Exploratória
+
+```{r}
+suppressMessages(attach(nitrofen))
+boxplot(ovos~dose, col=cores[3])
+```
+Doses maiores parecem reduzir o número de ovos eclodidos.
+
+## Seleção do modelo
+
+```{r, warning=FALSE}
+
+n<-nrow(nitrofen)
+
+modelo<-ovos~dose
+pois<-rbind(
+ResultadosPois(nitrofen, modelo, ligacao = "log", tipo ="envel_pois_log"),
+ResultadosPois(nitrofen, modelo, ligacao = "raiz", tipo ="envel_pois_raiz"),
+ResultadosPois(nitrofen, modelo, ligacao = "identity", tipo ="envel_pois")
+)
+
+pois |>
+  arrange(BIC) |>
+  knitr::kable(caption = "Melhor modelo - Poisson", format ="pipe")
+
+
+bn<-rbind(
+ResultadosBN(nitrofen, modelo, ligacao = "log", tipo ="envel_nbin_log"),
+ResultadosBN(nitrofen, modelo, ligacao = "raiz", tipo ="envel_nbin_raiz"),
+ResultadosBN(nitrofen, modelo, ligacao = "identity", tipo ="envel_nbin")
+)
+
+bn |>
+  arrange(BIC) |>
+  knitr::kable(caption = "Melhor modelo - Binomial Negativa", format ="pipe")
+
+
+```
+
+## Teste de adequação da função de ligação
+```{r}
+modelo<-ovos~dose
+fit.model <- glm(modelo, family=poisson(link=log))
+pl2 <- predict(fit.model)^2 
+fit.model2<-glm(update.formula(modelo,~ . + pl2), family=poisson(link=log))
+summary(fit.model2)
+table(dose,pl2)   # nao dah para fazer para uma unica variavel explicativa categorica
+
+```
+O teste não funciona, só temos uma variável explicativa e ela é categórica.
+
+## Resíduos e Diagnóstico
+```{r}
+modelo<-ovos~dose
+fit.model <- glm(modelo, family=poisson(link=log))
+
+resul.resd<-residuos(fit.model)
+```
+Tirando as duas observações que possuem resíduos altos, os resíduos estão bem comportados.
+
+```{r}
+plot(resul.resd$hii)
+```
+```{r}
+plot(resul.resd$LD)
+```
+```{r}
+summary(ovos)
+nitrofen[45,]
+```
+A observação 45 está no primeiro quartil da variável resposta e recebeu a maior dose.
+
+## Interpretação
+```{r}
+modelo<-modelo<-ovos~dose
+fit.model <- glm(modelo, family=poisson(link=log))
+exp(coef(fit.model))
+```
+* A dose de 80mg/l de nitrofen reduz em 3% o número de ovos que eclodiram.
+
+* A dose de 160mg/l reduz em 13%.
+
+* A dose de 235mg/l reduz em 47%.
+
+* A dose mais eficaz em reduzir o número de ovos é a de 310mg/l, reduz em 81%.
+

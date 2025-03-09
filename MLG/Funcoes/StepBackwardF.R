@@ -24,7 +24,7 @@ testef<-function(fit0,fit1) {
   # testef(ajuste.sobH0,ajuste.sobH1)
   #
   
-  if( (class(fit0)[1]=="lm" | class(fit0)[1]=="glm") & (class(fit1)[1]=="lm" | class(fit1)[1]=="glm") & (class(fit0)[1]==class(fit1)[1]) ) {
+  if( (class(fit0)[1]=="lm" | class(fit0)[1]=="glm" | class(fit0)[1]=="negbin") & (class(fit1)[1]=="lm" | class(fit1)[1]=="glm" | class(fit1)[1]=="negbin") & (class(fit0)[1]==class(fit1)[1]) ) {
     
   } else {
     stop(paste("\nA classe dos dois objetos deveriam iguais (lm ou glm) !!!\n"))
@@ -55,7 +55,7 @@ stepJAQ<- function(object, alpha = 0.05, trace = 1, steps = 1000) {
   
   # Função para calcular o p-valor do teste F
   get_pvalue <- function(fit, term) {
-
+    
     reduced_model <- try(update(fit, paste("~ . -", term)), silent = T)
     aux<-sum(class(reduced_model) != "try-error")
     if(aux==0)

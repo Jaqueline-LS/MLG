@@ -25,10 +25,10 @@ testef<-function(fit0,fit1) {
 # testef(ajuste.sobH0,ajuste.sobH1)
 #
 
-if( (class(fit0)[1]=="lm" | class(fit0)[1]=="glm") & (class(fit1)[1]=="lm" | class(fit1)[1]=="glm") & (class(fit0)[1]==class(fit1)[1]) ) {
+if( (class(fit0)[1]=="lm" | class(fit0)[1]=="glm" | class(fit0)[1]=="negbin") & (class(fit1)[1]=="lm" | class(fit1)[1]=="glm" | class(fit1)[1]=="negbin") & (class(fit0)[1]==class(fit1)[1]) ) {
 
 } else {
-	stop(paste("\nA classe dos dois objetos deveriam iguais (lm ou glm) !!!\n"))
+	stop(paste("\nA classe dos dois objetos deveriam iguais (lm glm ou negbin) !!!\n"))
 }
 if(class(fit0)[1]=="glm") {
 	if(fit0$family[[1]] != fit1$family[[1]]) {
